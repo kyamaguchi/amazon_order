@@ -7,6 +7,9 @@
 /pkg/
 /spec/reports/
 /tmp/
+/.env
+/.byebug_history
+/.ruby-version
 
 # rspec failure tracking
 .rspec_status
