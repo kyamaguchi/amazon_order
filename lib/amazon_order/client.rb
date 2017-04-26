@@ -4,6 +4,8 @@ module AmazonOrder
 
     def initialize(options = {})
       @options = options
+      @year_from = @options.fetch(:year_from, Time.current.year)
+      @year_to = @options.fetch(:year_to, Time.current.year)
       begin
         @client = AmazonAuth::Client.new(@options)
       rescue => e
@@ -20,7 +22,9 @@ module AmazonOrder
     def fetch_amazon_orders
       sign_in
       go_to_amazon_order_page
-      fetch_orders_for_year
+      @year_to.to_i.downto(@year_from.to_i) do |year|
+        fetch_orders_for_year(year: year)
+      end
     end
 
     def sign_in
@@ -34,20 +38,27 @@ module AmazonOrder
 
     def fetch_orders_for_year(options = {})
       year = options.fetch(:year, Time.current.year)
-      switch_year(year)
-      save_page_for(year, current_page_node.try!(:text))
-      while (node = next_page_node) do
-        session.visit node.attr('href')
-        save_page_for(year, current_page_node.text)
+      if switch_year(year)
+        save_page_for(year, current_page_node.try!(:text))
+        while (node = next_page_node) do
+          session.visit node.attr('href')
+          save_page_for(year, current_page_node.text)
+        end
       end
     end
 
     def switch_year(year)
       return true if year.to_i == selected_year
       session.first('.order-filter-dropdown .a-icon-dropdown').click
-      session.all('.a-popover-wrapper .a-dropdown-link').find{|e| e.text.gsub(/\D+/,'').to_i == year.to_i }.click
+      option = session.all('.a-popover-wrapper .a-dropdown-link').find{|e| e.text.gsub(/\D+/,'').to_i == year.to_i }
+      return false if option.nil?
+      option.click
       sleep 2
       puts "Year:#{year} -> #{number_of_orders}"
+      true
+    rescue => e
+      puts "#{e.message}\n#{e.backtrace.join("\n")}"
+      false
     end
 
     def save_page_for(year, page)
