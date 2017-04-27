@@ -6,12 +6,7 @@ module AmazonOrder
       @options = options
       @year_from = @options.fetch(:year_from, Time.current.year)
       @year_to = @options.fetch(:year_to, Time.current.year)
-      begin
-        @client = AmazonAuth::Client.new(@options)
-      rescue => e
-        puts "Please setup credentials of amazon_auth gem with folloing its instruction."
-        raise e
-      end
+      @client = AmazonAuth::Client.new(@options)
       extend(AmazonAuth::SessionExtension)
     end
 
