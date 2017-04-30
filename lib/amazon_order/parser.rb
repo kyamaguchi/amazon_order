@@ -30,11 +30,11 @@ module AmazonOrder
 
       def shipment_status
         # class names like "shipment-is-delivered" in '.shipment' node may be useful
-        @_shipment_status ||= @node.css('.shipment').present? ? @node.css('.shipment .shipment-top-row .a-row')[0].text.strip : nil
+        @_shipment_status ||= @node.css('.shipment .shipment-top-row').present? ? @node.css('.shipment .shipment-top-row .a-row')[0].text.strip : nil
       end
 
       def shipment_note
-        @_shipment_note ||= @node.css('.shipment').present? ? @node.css('.shipment .shipment-top-row .a-row')[1].text.strip : nil
+        @_shipment_note ||= @node.css('.shipment .shipment-top-row').present? ? @node.css('.shipment .shipment-top-row .a-row')[1].text.strip : nil
       end
 
       def order_details_path
@@ -94,7 +94,7 @@ module AmazonOrder
       end
 
       def path
-        @_path ||= @node.css('.a-col-right .a-row a')[0].attr('href')
+        @_path ||= @node.css('.a-col-right .a-row a')[0].attr('href') rescue nil
       end
 
       def content
