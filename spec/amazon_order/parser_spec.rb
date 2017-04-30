@@ -36,7 +36,7 @@ describe AmazonOrder::Parser do
         it "has information" do
           order = @parser.orders.last
           expect(order.order_placed).to be_a(Date)
-          expect(order.order_number).to match(/\AD[\d\-]+\z/)
+          expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
           expect(order.order_total).to match(/\A[\d\.]+\z/)
           expect(order.order_details_path).to match(%r{\A/gp/})
 
