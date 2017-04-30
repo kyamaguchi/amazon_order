@@ -59,6 +59,10 @@ module AmazonOrder
         hash
       end
 
+      def values
+        ATTRIBUTES.map{|a| send(a) }
+      end
+
       def parse_date(date_text)
         begin
           Date.parse(date_text)
@@ -108,6 +112,10 @@ module AmazonOrder
           hash[f] = send(f)
         end
         hash
+      end
+
+      def values
+        ATTRIBUTES.map{|a| send(a) }
       end
 
       def get_original_image_url(url)
