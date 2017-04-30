@@ -22,7 +22,7 @@ describe AmazonOrder::Parser do
 
     it "finds orders" do
       expect(@parser.orders.size).to be > 0
-      expect(@parser.orders.first).to be_a(AmazonOrder::Parser::Order)
+      expect(@parser.orders.first).to be_a(AmazonOrder::Parsers::Order)
     end
   end
 
@@ -83,7 +83,7 @@ describe AmazonOrder::Parser do
 
   describe '#get_original_image_url' do
     it "removes image options from url" do
-      parser = AmazonOrder::Parser::Product.new(nil)
+      parser = AmazonOrder::Parsers::Product.new(nil)
       {
         'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg' => 'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg',
         'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL._UY250_.jpg' => 'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg',
