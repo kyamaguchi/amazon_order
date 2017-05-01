@@ -6,6 +6,7 @@ module AmazonOrder
       @options = options
       @year_from = @options.fetch(:year_from, Time.current.year)
       @year_to = @options.fetch(:year_to, Time.current.year)
+      @base_dir = @options.fetch(:base_dir, 'orders')
       @client = AmazonAuth::Client.new(@options)
       extend(AmazonAuth::SessionExtension)
     end
@@ -59,7 +60,7 @@ module AmazonOrder
     def save_page_for(year, page)
       puts "Saving year:#{year} page:#{page}"
       path = ['order', year.to_s, "p#{page}", Time.current.strftime('%Y%m%d%H%M%S')].join('-') + '.html'
-      session.save_page(File.join('orders', path))
+      session.save_page(File.join(@base_dir, path))
     end
 
     def selected_year

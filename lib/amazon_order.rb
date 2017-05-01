@@ -5,6 +5,7 @@ require "amazon_order/parsers/base"
 require "amazon_order/parsers/order"
 require "amazon_order/parsers/product"
 require "amazon_order/parser"
+require "amazon_order/writer"
 
 module AmazonOrder
 end

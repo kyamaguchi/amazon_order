@@ -58,27 +58,6 @@ describe AmazonOrder::Parser do
         end
       end
     end
-
-    it "generate data as csv files", csv: true do
-      require 'csv'
-      FileUtils.mkdir_p('tmp')
-
-      data = {'orders' => [], 'products' => []}
-      Dir.entries(TARGET_DIR).select{|f| f =~ /html/ }.each do |file|
-        puts "    Parsing #{file}"
-        parser = AmazonOrder::Parser.new(find_fixture_filepath(file))
-        data['orders'] += parser.orders.map(&:values)
-        data['products'] += parser.orders.map(&:products).flatten.map(&:values)
-      end
-
-      %w[orders products].each do |resource|
-        csv_file = "tmp/#{resource}#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
-        puts "    Writing #{csv_file}"
-        CSV.open(csv_file, 'wb') do |csv|
-          data[resource].each{|r| csv << r }
-        end
-      end
-    end
   end
 
   describe '#get_original_image_url' do
