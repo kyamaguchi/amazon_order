@@ -3,15 +3,14 @@ require 'spec_helper'
 describe AmazonOrder::Parser do
   TARGET_DIR = ENV['ORDERS_DIR'].presence || 'spec/fixtures/files'
 
-  def find_fixture_filepath(name)
-    path = File.join(TARGET_DIR, name || '')
-    pending("Put your html in #{path} for testing") unless name.present? && File.exists?(path)
+  def ensure_fixture_filepath(path)
+    pending("Put your html in #{path} for testing") unless File.exists?(path)
     path
   end
 
   context 'with single file' do
     before do
-      filepath = find_fixture_filepath(Dir.entries('spec/fixtures/files').select{|f| f =~ /html/ }.last)
+      filepath = ensure_fixture_filepath(Dir.glob("#{TARGET_DIR}/*html").last)
       @parser = AmazonOrder::Parser.new(filepath)
     end
 
@@ -27,10 +26,10 @@ describe AmazonOrder::Parser do
   end
 
   describe 'orders' do
-    Dir.entries(TARGET_DIR).select{|f| f =~ /html/ }.each do |file|
-      context "with file (#{file})" do
+    Dir.glob("#{TARGET_DIR}/*html").each do |filepath|
+      context "with file (#{filepath})" do
         before do
-          @parser = AmazonOrder::Parser.new(find_fixture_filepath(file))
+          @parser = AmazonOrder::Parser.new(ensure_fixture_filepath(filepath))
         end
 
         it "has information" do
