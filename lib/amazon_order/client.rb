@@ -1,14 +1,20 @@
 module AmazonOrder
   class Client
-    attr_accessor :session
+    attr_accessor :session, :options
 
     def initialize(options = {})
       @options = options
-      @year_from = @options.fetch(:year_from, Time.current.year)
-      @year_to = @options.fetch(:year_to, Time.current.year)
       @base_dir = @options.fetch(:base_dir, 'orders')
       @client = AmazonAuth::Client.new(@options)
       extend(AmazonAuth::SessionExtension)
+    end
+
+    def year_from
+      options.fetch(:year_from, Time.current.year)
+    end
+
+    def year_to
+      options.fetch(:year_to, Time.current.year)
     end
 
     def session
@@ -18,7 +24,7 @@ module AmazonOrder
     def fetch_amazon_orders
       sign_in
       go_to_amazon_order_page
-      @year_to.to_i.downto(@year_from.to_i) do |year|
+      year_to.to_i.downto(year_from.to_i) do |year|
         fetch_orders_for_year(year: year)
       end
     end
