@@ -19,6 +19,10 @@ module AmazonOrder
       options.fetch(:year_to, Time.current.year)
     end
 
+    def limit
+      options.fetch(:limit, 5)
+    end
+
     def session
       @session ||= @client.session
     end
@@ -57,6 +61,7 @@ module AmazonOrder
         while (node = next_page_node) do
           session.visit node.attr('href')
           save_page_for(year, current_page_node.text)
+          break if limit && limit <= current_page_node.text.to_i
         end
       end
     end
