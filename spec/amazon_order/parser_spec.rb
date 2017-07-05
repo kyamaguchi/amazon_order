@@ -4,14 +4,14 @@ describe AmazonOrder::Parser do
   TARGET_DIR = ENV['ORDERS_DIR'].presence || 'spec/fixtures/files'
 
   def ensure_fixture_filepath(path)
-    pending("Put your html in #{path} for testing") unless File.exists?(path)
+    pending("Put your html in #{path} for testing") unless path && File.exists?(path)
     path
   end
 
   context 'with single file' do
     before do
       filepath = ensure_fixture_filepath(Dir.glob("#{TARGET_DIR}/*html").last)
-      @parser = AmazonOrder::Parser.new(filepath)
+      @parser = AmazonOrder::Parser.new(ensure_fixture_filepath(filepath))
     end
 
     it "finds selector of order" do
