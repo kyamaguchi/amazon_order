@@ -17,7 +17,7 @@ module AmazonOrder
       end
 
       def order_total
-        @_order_total ||= @node.css('.order-info .a-col-left .a-column')[1].css('.value').text.strip.gsub(/[^\d\.]/,'')
+        @_order_total ||= @node.css('.order-info .a-col-left .a-column')[1].css('.value').text.strip.gsub(/[^\d\.]/,'').to_f
       end
 
       def shipment_status

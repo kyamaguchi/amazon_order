@@ -38,7 +38,8 @@ describe AmazonOrder::Parser do
 
           expect(order.order_placed).to be_a(Date)
           expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
-          expect(order.order_total).to match(/\A[\d\.]+\z/)
+          expect(order.order_total).to be_a(Numeric)
+          expect(order.order_total.to_s).to match(/\A[\d\.]+\z/)
           expect(order.order_details_path).to match(%r{\A/gp/})
           expect(order.fetched_at).to be_present
 
