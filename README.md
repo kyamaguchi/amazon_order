@@ -1,8 +1,19 @@
 # AmazonOrder
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/amazon_order`. To experiment with that code, run `bin/console` for an interactive prompt.
+[![Gem Version](https://badge.fury.io/rb/amazon_order.svg)](https://badge.fury.io/rb/amazon_order)
+[![Build Status](https://travis-ci.org/kyamaguchi/amazon_order.svg?branch=master)](https://travis-ci.org/kyamaguchi/amazon_order)
 
-TODO: Delete this and the text above, and describe your gem
+Scrape information of amazon orders from amazon site
+
+##### Fetch Amazon Orders information
+
+![amazon_order_fetch](https://user-images.githubusercontent.com/275284/27861994-1d257558-61be-11e7-9cd3-9abe7fcb0716.gif)
+
+##### Load orders information
+
+![amazon_order_load](https://user-images.githubusercontent.com/275284/27862028-3d19a5be-61be-11e7-8627-1593237c1085.gif)
+
+Recorded with [Recordit](http://recordit.co/)
 
 ## Installation
 
@@ -22,20 +33,122 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### Setup
+
+[chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) is required. Please [download chromedriver](http://chromedriver.storage.googleapis.com/index.html) and update chromedriver regularly.  
+
+Create _.env_ following the instructions of https://github.com/kyamaguchi/amazon_auth
+
+```
+amazon_auth
+
+vi .env
+```
+
+And `Dotenv.load` or `gem 'dotenv-rails'` may be required when you use this in your app.
+
+### Run
+
+In console
+
+```ruby
+require 'amazon_order'
+client = AmazonOrder::Client.new(verbose: true, limit: 10)
+client.fetch_amazon_orders
+# Fetch orders of specified year
+client.fetch_orders_for_year(year: 2016)
+
+# Fetch all pages of specified year
+client = AmazonOrder::Client.new(limit: nil)
+client.sign_in
+client.go_to_amazon_order_page
+client.fetch_orders_for_year(year: 2015)
+```
+
+Downloaded pages will be stored into `order` directory.
+You can reset by moving that directory.
+
+Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
+(You don't need to fetch pages with launching browser every time.)
+
+```ruby
+orders = client.load_amazon_orders;nil
+orders.size
+
+# Sum of order_total
+orders.map(&:order_total).sum
+
+# Products
+products = orders.map(&:products).flatten;nil
+products.size
+
+# Sum of order_total by year
+orders.group_by{|o| o.order_placed.strftime('%Y') }.sort_by{|year,_| year }.map{|year,records| puts [year, records.map(&:order_total).sum].inspect };nil
+```
+
+Example of data
+
+```ruby
+console> pp orders.first.to_hash
+{"order_placed"=>Wed, 25 Aug 2010,
+ "order_number"=>"503-5746373-6335034",
+ "order_total"=>2940.0,
+ "shipment_status"=>nil,
+ "shipment_note"=>nil,
+ "order_details_path"=>
+  "/gp/your-account/order-details/...",
+ "all_products_displayed"=>false,
+ :products=>
+  [{"title"=>"メタプログラミングRuby",
+ ...
+}
+
+console> pp products.first.to_hash
+{"title"=>"メタプログラミングRuby",
+ "path"=>"/gp/product/4048687158/...",
+ "content"=>"Paolo Perrotta, 角征典...",
+ "image_url"=>
+ "https://images-fe.ssl-images-amazon.com/images/I/51TODrMIEnL.jpg"}
+```
+
+#### Options
+
+Limit fetching with number of pages: `client = AmazonOrder::Client.new(limit: 5)`
+`limit: nil` for no limit. default is 5
+
+Set year range: `client = AmazonOrder::Client.new(year_from: 2012, year_to: 2013)`
+default is Time.current.year
+
+##### Options of amazon_auth gem
+
+Firefox: `driver: :firefox`
+
+Output debug log: `debug: true`
+
+## Notice
+
+This may not work well with amazon.com because I don't have enough data of order pages.
+(amazon.co.jp will be OK)
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```ruby
+client = AmazonOrder::Client.new(debug: true)
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+### Testing
+
+Test parsing of all your orders pages
+
+```
+ORDERS_DIR=/path/to/testapp/orders rspec spec/amazon_order/parser_spec.rb
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/amazon_order.
+Bug reports and pull requests are welcome on GitHub at https://github.com/kyamaguchi/amazon_order.
 
 
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
