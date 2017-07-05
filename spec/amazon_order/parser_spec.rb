@@ -34,10 +34,13 @@ describe AmazonOrder::Parser do
 
         it "has information" do
           order = @parser.orders.last
+          expect(@parser.fetched_at).to be_present
+
           expect(order.order_placed).to be_a(Date)
           expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
           expect(order.order_total).to match(/\A[\d\.]+\z/)
           expect(order.order_details_path).to match(%r{\A/gp/})
+          expect(order.fetched_at).to be_present
 
           expect(order.products.size).to be > 0
           product = order.products.first
@@ -45,6 +48,7 @@ describe AmazonOrder::Parser do
           expect(product.path).to match(%r{\A/gp/product/})
           expect(product.content).to be_present
           expect(product.image_url).to match(%r{/images/I/[^.]+\.jpg})
+          expect(product.fetched_at).to be_present
         end
 
         it "prints json" do

@@ -38,7 +38,7 @@ module AmazonOrder
       end
 
       def products
-        @_products ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row')[0].css('.a-fixed-left-grid').map{|e| AmazonOrder::Parsers::Product.new(e) }
+        @_products ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row')[0].css('.a-fixed-left-grid').map{|e| AmazonOrder::Parsers::Product.new(e, fetched_at: fetched_at) }
       end
 
 

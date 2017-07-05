@@ -1,8 +1,11 @@
 module AmazonOrder
   module Parsers
     class Base
-      def initialize(node)
+      attr_accessor :fetched_at
+
+      def initialize(node, options = {})
         @node = node
+        @fetched_at = options[:fetched_at]
       end
 
       def inspect
