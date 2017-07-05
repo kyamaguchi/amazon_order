@@ -31,6 +31,16 @@ module AmazonOrder
       end
     end
 
+    def load_amazon_orders
+      orders = []
+      Dir.glob("#{@base_dir}/*html").each do |filepath|
+        log "Loading #{filepath}"
+        parser = AmazonOrder::Parser.new(filepath)
+        orders += parser.orders
+      end
+      orders.sort_by{|o| -o.fetched_at.to_i }.uniq(&:order_number)
+    end
+
     def sign_in
       @client.sign_in
     end
