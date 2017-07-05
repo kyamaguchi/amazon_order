@@ -1,5 +1,7 @@
 module AmazonOrder
   class Client
+    include AmazonAuth::CommonExtension
+
     attr_accessor :session, :options
 
     def initialize(options = {})
@@ -51,12 +53,12 @@ module AmazonOrder
 
     def switch_year(year)
       return true if year.to_i == selected_year
-      session.first('.order-filter-dropdown .a-icon-dropdown').click
+      session.first('.order-filter-dropdown .a-dropdown-prompt').click
       option = session.all('.a-popover-wrapper .a-dropdown-link').find{|e| e.text.gsub(/\D+/,'').to_i == year.to_i }
       return false if option.nil?
       option.click
       sleep 2
-      puts "Year:#{year} -> #{number_of_orders}"
+      log "Year:#{year} -> #{number_of_orders}"
       true
     rescue => e
       puts "#{e.message}\n#{e.backtrace.join("\n")}"
@@ -64,7 +66,7 @@ module AmazonOrder
     end
 
     def save_page_for(year, page)
-      puts "Saving year:#{year} page:#{page}"
+      log "Saving year:#{year} page:#{page}"
       path = ['order', year.to_s, "p#{page}", Time.current.strftime('%Y%m%d%H%M%S')].join('-') + '.html'
       session.save_page(File.join(@base_dir, path))
     end
