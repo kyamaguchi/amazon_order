@@ -32,7 +32,7 @@ module AmazonOrder
     def data
       @_data ||= begin
         data = {'orders' => [], 'products' => []}
-        Dir.glob("#{@base_dir}/*html").each do |filepath|
+        Dir.glob(File.join(Capybara.save_path, @base_dir, '*html')).each do |filepath|
           puts "    Parsing #{filepath}"
           parser = AmazonOrder::Parser.new(filepath)
           data['orders'] += parser.orders.map(&:values)

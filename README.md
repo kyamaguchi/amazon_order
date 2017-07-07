@@ -37,11 +37,14 @@ Or install it yourself as:
 
 [chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) is required. Please [download chromedriver](http://chromedriver.storage.googleapis.com/index.html) and update chromedriver regularly.  
 
-Create _.env_ following the instructions of https://github.com/kyamaguchi/amazon_auth
+Create credentials following the instructions of https://github.com/kyamaguchi/amazon_auth  
+Use `envchain` or _.env_
 
 ```
 amazon_auth
 
+envchain amazon ...
+# OR
 vi .env
 ```
 
@@ -53,7 +56,7 @@ In console
 
 ```ruby
 require 'amazon_order'
-client = AmazonOrder::Client.new(verbose: true, limit: 10)
+client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 10)
 client.fetch_amazon_orders
 # Fetch orders of specified year
 client.fetch_orders_for_year(year: 2016)
@@ -65,8 +68,8 @@ client.go_to_amazon_order_page
 client.fetch_orders_for_year(year: 2015)
 ```
 
-Downloaded pages will be stored into `order` directory.
-You can reset by moving that directory.
+Downloaded pages will be stored into `tmp/orders` directory.  
+`tmp` comes from `Capybara.save_path`.  
 
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)
@@ -114,12 +117,14 @@ console> pp products.first.to_hash
 #### Options
 
 Limit fetching with number of pages: `client = AmazonOrder::Client.new(limit: 5)`
-`limit: nil` for no limit. default is 5
+(`limit: nil` for no limit. default is 5)
 
 Set year range: `client = AmazonOrder::Client.new(year_from: 2012, year_to: 2013)`
-default is Time.current.year
+(default is Time.current.year)
 
 ##### Options of amazon_auth gem
+
+Keep cookies(keep signin): `keep_cookie: true`
 
 Firefox: `driver: :firefox`
 
