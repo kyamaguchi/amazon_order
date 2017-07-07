@@ -37,7 +37,7 @@ module AmazonOrder
 
     def load_amazon_orders
       orders = []
-      Dir.glob("#{@base_dir}/*html").each do |filepath|
+      Dir.glob(File.join(Capybara.save_path, @base_dir, '*html')).each do |filepath|
         log "Loading #{filepath}"
         parser = AmazonOrder::Parser.new(filepath)
         orders += parser.orders
