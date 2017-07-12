@@ -89,7 +89,7 @@ products.size
 orders.group_by{|o| o.order_placed.strftime('%Y') }.sort_by{|year,_| year }.map{|year,records| puts [year, records.map(&:order_total).sum].inspect };nil
 ```
 
-Example of data
+#### Example of data
 
 ```ruby
 console> pp orders.first.to_hash
@@ -112,6 +112,12 @@ console> pp products.first.to_hash
  "content"=>"Paolo Perrotta, 角征典...",
  "image_url"=>
  "https://images-fe.ssl-images-amazon.com/images/I/51TODrMIEnL.jpg"}
+```
+
+#### Export csv
+
+```ruby
+client.generate_csv
 ```
 
 #### Options

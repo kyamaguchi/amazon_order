@@ -1,7 +1,7 @@
 module AmazonOrder
   class Writer
-    def initialize(base_dir, options = {})
-      @base_dir = base_dir
+    def initialize(file_glob_pattern, options = {})
+      @file_glob_pattern = file_glob_pattern
       @output_dir = options.fetch(:output_dir, 'tmp')
     end
 
@@ -32,7 +32,7 @@ module AmazonOrder
     def data
       @_data ||= begin
         data = {'orders' => [], 'products' => []}
-        Dir.glob(File.join(Capybara.save_path, @base_dir, '*html')).each do |filepath|
+        Dir.glob(@file_glob_pattern).each do |filepath|
           puts "    Parsing #{filepath}"
           parser = AmazonOrder::Parser.new(filepath)
           data['orders'] += parser.orders.map(&:values)
