@@ -6,9 +6,12 @@ module AmazonOrder
 
     def initialize(options = {})
       @options = options
-      @base_dir = @options.fetch(:base_dir, 'orders')
       @client = AmazonAuth::Client.new(@options)
       extend(AmazonAuth::SessionExtension)
+    end
+
+    def base_dir
+      options.fetch(:base_dir, 'orders')
     end
 
     def year_from
@@ -37,12 +40,24 @@ module AmazonOrder
 
     def load_amazon_orders
       orders = []
-      Dir.glob(File.join(Capybara.save_path, @base_dir, '*html')).each do |filepath|
+      Dir.glob(file_glob_pattern).each do |filepath|
         log "Loading #{filepath}"
         parser = AmazonOrder::Parser.new(filepath)
         orders += parser.orders
       end
       orders.sort_by{|o| -o.fetched_at.to_i }.uniq(&:order_number)
+    end
+
+    def file_glob_pattern
+      File.join(Capybara.save_path, base_dir, '*html')
+    end
+
+    def generate_csv
+      writer.generate_csv
+    end
+
+    def writer
+      @_writer ||= AmazonOrder::Writer.new(file_glob_pattern)
     end
 
     def sign_in
@@ -83,7 +98,7 @@ module AmazonOrder
     def save_page_for(year, page)
       log "Saving year:#{year} page:#{page}"
       path = ['order', year.to_s, "p#{page}", Time.current.strftime('%Y%m%d%H%M%S')].join('-') + '.html'
-      session.save_page(File.join(@base_dir, path))
+      session.save_page(File.join(base_dir, path))
     end
 
     def selected_year
