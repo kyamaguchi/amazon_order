@@ -18,11 +18,16 @@ describe AmazonOrder::Parsers::Order do
       parser.orders.each do |order|
         current_index = parser.orders.index(order)
         # next unless current_index == 3
-        context "for order #{current_index}" do
+        context "for order at #{current_index}" do
+
+          describe "#order number" do
+            it "#{order.order_number}" do
+              expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
+            end
+          end
 
           it "has information" do
             expect(order.order_placed).to be_a(Date)
-            expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
             expect(order.order_total).to be_a(Numeric)
             expect(order.order_total.to_s).to match(/\A[\d\.]+\z/)
             expect(order.order_details_path).to match(%r{\A/gp/})
