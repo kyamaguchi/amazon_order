@@ -21,7 +21,8 @@ module AmazonOrder
         csv_file = "#{@output_dir}/#{resource}#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
         puts "    Writing #{csv_file}"
         CSV.open(csv_file, 'wb') do |csv|
-          data[resource].each{|r| csv << r }
+          csv << attributes_for(resource)
+          data[resource].each { |r| csv << r }
         end
         csv_file
       end
@@ -39,6 +40,15 @@ module AmazonOrder
           data['products'] += parser.orders.map(&:products).flatten.map(&:values)
         end
         data
+      end
+    end
+
+    def attributes_for(resource)
+      case resource
+      when 'orders'
+        AmazonOrder::Parsers::Order::ATTRIBUTES
+      when 'products'
+        AmazonOrder::Parsers::Product::ATTRIBUTES
       end
     end
   end
