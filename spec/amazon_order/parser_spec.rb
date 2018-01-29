@@ -36,58 +36,6 @@ describe AmazonOrder::Parser do
         it "has information" do
           expect(parser.fetched_at).to be_present
         end
-
-        describe '#orders - #order' do
-          parser.orders.each do |order|
-            context "for order #{parser.orders.index(order)}" do
-
-              it "has information" do
-                expect(order.order_placed).to be_a(Date)
-                expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
-                expect(order.order_total).to be_a(Numeric)
-                expect(order.order_total.to_s).to match(/\A[\d\.]+\z/)
-                expect(order.order_details_path).to match(%r{\A/gp/})
-                expect(order.fetched_at).to be_present
-                expect(order.products.size).to be > 0
-              end
-
-              describe '#orders - #order.first.#product' do
-                it 'has information' do
-                  product = order.products.first
-                  expect(product.title).to be_present
-                  expect(product.path).to match(%r{\A/gp/product/})
-                  expect(product.content).to be_present
-                  expect(product.image_url).to match(%r{/images/I/[^.]+\.jpg})
-                  expect(product.fetched_at).to be_present
-                end
-              end
-
-              describe '#orders - order#to_json' do
-                it "prints json" do
-                  json = order.to_json
-                  expect(json).to match(/"order_total"/)
-                  expect(json).to match(/"products"/)
-                  expect(json).to match(/"\d{4}-\d{2}-\d{2}"/) # date
-                  expect(parser.orders.to_json).to match(/\[{"order_placed":/)
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-
-  describe '#get_original_image_url' do
-    it "removes image options from url" do
-      parser = AmazonOrder::Parsers::Product.new(nil)
-      {
-        'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg' => 'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg',
-        'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL._UY250_.jpg' => 'https://images-fe.ssl-images-amazon.com/images/I/51lqodTD6KL.jpg',
-        'https://images-na.ssl-images-amazon.com/images/I/51i0hr6kccL._AC_US218_.jpg' => 'https://images-na.ssl-images-amazon.com/images/I/51i0hr6kccL.jpg',
-        'https://images-na.ssl-images-amazon.com/images/I/512S13U-XPL._SL500_SR103,135_.jpg' => 'https://images-na.ssl-images-amazon.com/images/I/512S13U-XPL.jpg',
-      }.each do |url, expected|
-        expect(parser.get_original_image_url(url)).to eql(expected)
       end
     end
   end
