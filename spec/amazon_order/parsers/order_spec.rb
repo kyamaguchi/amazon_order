@@ -17,7 +17,7 @@ describe AmazonOrder::Parsers::Order do
 
       parser.orders.each do |order|
         current_index = parser.orders.index(order)
-        # next unless current_index == 3
+
         context "for order at #{current_index}" do
 
           describe "#order number" do
@@ -35,12 +35,23 @@ describe AmazonOrder::Parsers::Order do
             expect(order.products.size).to be > 0
           end
 
-          it "prints json" do
-            json = order.to_json
-            expect(json).to match(/"order_total"/)
-            expect(json).to match(/"products"/)
-            expect(json).to match(/"\d{4}-\d{2}-\d{2}"/) # date
-            expect(parser.orders.to_json).to match(/\[{"order_placed":/)
+          describe "#shipment_note" do
+            context 'with a service order' do
+              next unless order.order_number == '114-2295903-7028239'
+              it 'returns nil' do
+                expect(order.shipment_note).to be_nil
+              end
+            end
+          end
+
+          describe "#to_json" do
+            it 'returns json' do
+              json = order.to_json
+              expect(json).to match(/"order_total"/)
+              expect(json).to match(/"products"/)
+              expect(json).to match(/"\d{4}-\d{2}-\d{2}"/) # date
+              expect(parser.orders.to_json).to match(/\[{"order_placed":/)
+            end
           end
         end
       end
