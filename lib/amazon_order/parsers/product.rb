@@ -21,7 +21,7 @@ module AmazonOrder
       end
 
       def image_url
-        @_image_url ||= get_original_image_url(@node.css('.a-col-left img')[0].attr('src'))
+        @_image_url ||= get_original_image_url(@node.css('.a-col-left img')[0].attr('data-a-hires'))
       end
     end
   end
