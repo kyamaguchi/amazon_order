@@ -65,8 +65,17 @@ module AmazonOrder
     end
 
     def go_to_amazon_order_page
+      if doc.css('.cvf-account-switcher').present?
+        log "Account switcher page was displayed"
+        session.first('.cvf-account-switcher-profile-details').click
+        wait_for_selector('#nav-main') # Wait for page loading
+      end
       link = links_for('a').find{|link| link =~ %r{/order-history} }
-      session.visit link
+      if link.present?
+        session.visit link
+      else
+        log "Link for order history wasn't found in #{session.current_url}"
+      end
     end
 
     def fetch_orders_for_year(options = {})
