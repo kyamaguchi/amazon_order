@@ -9,7 +9,7 @@ module AmazonOrder
       data['orders']
     end
 
-    def print_produts
+    def print_products
       data['products']
     end
 
