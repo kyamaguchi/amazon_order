@@ -6,6 +6,7 @@ module AmazonOrder
       def initialize(node, options = {})
         @node = node
         @fetched_at = options[:fetched_at]
+        @containing_object = options[:containing_object]
       end
 
       def inspect

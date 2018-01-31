@@ -11,40 +11,27 @@ describe AmazonOrder::Parsers::Order do
   Dir.glob("#{TARGET_DIR}/*html").each do |filepath|
     context "with file (#{filepath})" do
       parser = AmazonOrder::Parser.new(filepath)
-      before do
-        ensure_fixture_filepath(filepath)
-      end
+      before { ensure_fixture_filepath(filepath) }
 
       parser.orders.each do |order|
         current_index = parser.orders.index(order)
 
         context "for order at #{current_index}" do
-
-          describe "#order number" do
-            it "#{order.order_number}" do
-              expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
-            end
-          end
-
-          it "has information" do
+          it 'has information' do
             expect(order.order_placed).to be_a(Date)
             expect(order.order_total).to be_a(Numeric)
             expect(order.order_total.to_s).to match(/\A[\d\.]+\z/)
             expect(order.order_details_path).to match(%r{\A/gp/})
             expect(order.fetched_at).to be_present
-            expect(order.products.size).to be > 0
           end
 
-          describe "#shipment_note" do
-            context 'with a service order' do
-              next unless order.order_number == '114-2295903-7028239'
-              it 'returns nil' do
-                expect(order.shipment_note).to be_nil
-              end
+          describe '#order number' do
+            it "#{order.order_number}" do
+              expect(order.order_number).to match(/\A[D\d][\d\-]+\z/)
             end
           end
 
-          describe "#to_json" do
+          describe '#to_json' do
             it 'returns json' do
               json = order.to_json
               expect(json).to match(/"order_total"/)
@@ -53,6 +40,19 @@ describe AmazonOrder::Parsers::Order do
               expect(parser.orders.to_json).to match(/\[{"order_placed":/)
             end
           end
+
+          describe '#shipments' do
+            it 'has shipments' do
+              expect(order.shipments.size).to be > 0
+            end
+          end
+
+          describe '#products' do
+            it 'has products' do
+              expect(order.products.size).to be > 0
+            end
+          end
+
         end
       end
     end

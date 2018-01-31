@@ -3,7 +3,6 @@ module AmazonOrder
     class Order < Base
       ATTRIBUTES = %w[
                      order_placed order_number order_total
-                     shipment_status shipment_note
                      order_details_path
                      all_products_displayed
                    ]
@@ -20,33 +19,26 @@ module AmazonOrder
         @_order_total ||= @node.css('.order-info .a-col-left .a-column')[1].css('.value').text.strip.gsub(/[^\d\.]/, '').to_f
       end
 
-      def shipment_status
-        # class names like "shipment-is-delivered" in '.shipment' node may be useful
-        @_shipment_status ||= @node.css('.shipment .shipment-top-row').present? ? @node.css('.shipment .shipment-top-row .a-row')[0].text.strip : nil
-      end
-
-      def shipment_note
-        @_shipment_note ||= case order_type
-        when :item_order
-          @node.css('.shipment .shipment-top-row').present? ? @node.css('.shipment .shipment-top-row .a-row')[1].text.strip : nil
-        when :service_order
-          nil
-        end
-      end
-
-
       def order_details_path
         @_order_details_path ||= @node.css('.order-info .a-col-right .a-row')[1].css('a.a-link-normal')[0].attr('href')
       end
 
-      def all_products_displayed
-        @_all_products_displayed ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row').last.css('.a-link-emphasis').present?
+      def order_type
+        @node.css('[id^=Leave-Service-Feedback]').present? ? :service_order : :item_order
+      end
+
+      def shipments
+        @_shipments ||= @node.css('.shipment').map { |shipment| AmazonOrder::Parsers::Shipment.new(shipment, containing_object: self, fetched_at: fetched_at) }
       end
 
       def products
-        @_products ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row')[0].css('.a-fixed-left-grid').map { |e| AmazonOrder::Parsers::Product.new(e, fetched_at: fetched_at) }
+        shipments.flat_map(&:products)
       end
 
+      # might be broken now that orders have multiple shipments
+      def all_products_displayed
+        @_all_products_displayed ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row').last.css('.a-link-emphasis').present?
+      end
 
       def to_hash
         super do |hash|
@@ -54,9 +46,6 @@ module AmazonOrder
         end
       end
 
-      def order_type
-        @node.css('[id^=Leave-Service-Feedback]').present? ? :service_order : :item_order
-      end
     end
   end
 end
