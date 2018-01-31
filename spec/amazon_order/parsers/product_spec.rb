@@ -9,6 +9,7 @@ describe AmazonOrder::Parsers::Product do
   end
 
   Dir.glob("#{TARGET_DIR}/*html").each do |filepath|
+    puts filepath
     context "with file (#{filepath})" do
       parser = AmazonOrder::Parser.new(filepath)
       before { ensure_fixture_filepath(filepath) }
