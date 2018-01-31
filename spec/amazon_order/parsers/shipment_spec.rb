@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe AmazonOrder::Parsers::Product do
+describe AmazonOrder::Parsers::Shipment do
   TARGET_DIR = ENV['ORDERS_DIR'].presence || 'spec/fixtures/files'
 
   def ensure_fixture_filepath(path)
@@ -19,19 +19,18 @@ describe AmazonOrder::Parsers::Product do
           order.shipments.each do |shipment|
             current_index = order.shipments.index(shipment)
             context "for shipment at #{current_index}" do
-
-              shipment.products.each do |product|
-                current_index = shipment.products.index(product)
-                context "for product at #{current_index}" do
-
-                  it 'has information' do
-                    expect(product.title).to be_present
-                    expect(product.path).to match(%r{\A/gp/product/})
-                    expect(product.content).to be_present
-                    expect(product.image_url).to match(%r{/images/I/[^.]+\.jpg})
-                    expect(product.fetched_at).to be_present
+              describe '#shipment_note' do
+                context 'with a service order' do
+                  next unless order.order_number == '114-2295903-7028239'
+                  it 'returns nil' do
+                    expect(shipment.shipment_note).to be_nil
                   end
+                end
+              end
 
+              describe '#products' do
+                it 'has products' do
+                  expect(shipment.products.size).to be > 0
                 end
               end
             end
@@ -41,4 +40,3 @@ describe AmazonOrder::Parsers::Product do
     end
   end
 end
-
