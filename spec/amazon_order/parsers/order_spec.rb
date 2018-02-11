@@ -43,18 +43,11 @@ RSpec.shared_examples "generic order specs" do
   end
 end
 
-def ensure_fixture_filepath(path)
-  pending("Put your html in #{path} for testing") unless path && File.exists?(path)
-  path
-end
-
-
 describe AmazonOrder::Parsers::Order do
   let(:parser) { AmazonOrder::Parser.new(filepath) }
   let(:order) { parser.orders[index_of_order] }
 
   context 'user fixtures' do
-    TARGET_DIR = ENV['ORDERS_DIR'].presence || 'spec/fixtures/files'
     Dir.glob("#{TARGET_DIR}/*html").each do |filepath|
       context "with file (#{filepath})" do
         let(:filepath) { filepath }
@@ -94,7 +87,7 @@ describe AmazonOrder::Parsers::Order do
       end
     end
 
-    context 'order with with home services' do
+    context 'order with home services' do
       let(:filepath) { 'spec/fixtures/files/order-2018-p1-20180129141532-contains-home-service.html' }
       let(:index_of_order) { 9 }
       include_examples 'generic order specs'
@@ -115,7 +108,7 @@ describe AmazonOrder::Parsers::Order do
       end
     end
 
-    context 'order with with physical shipments' do
+    context 'order with physical shipments' do
       let(:filepath) { 'spec/fixtures/files/order-2018-p1-20180129141532-contains-home-service.html' }
       let(:index_of_order) { 2 }
       include_examples 'generic order specs'

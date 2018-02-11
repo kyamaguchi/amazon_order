@@ -8,10 +8,10 @@ describe AmazonOrder::Writer do
         expect(writer.print_orders.size).to be > 0
       end
       it 'has an order number' do
-        expect(writer.print_orders.first[1]).to match(%r{\A[0-9-]+\z}) # order_number
+        expect(writer.print_orders.map{|x| x[1] }).to all(satisfy {|v| v =~ %r{\AD?[0-9-]+\z} } )
       end
       it 'has an order details path' do
-        expect(writer.print_orders.first[3]).to match(%r{\A/gp/your-account/order-details/}) # order_details_path
+        expect(writer.print_orders.map{|x| x[3] }).to all(satisfy {|v| v =~ %r{\A/gp/(your-account/order-details|digital/your-account/order-summary)} } )
       end
     end
   end
@@ -22,10 +22,10 @@ describe AmazonOrder::Writer do
       expect(writer.print_products.size).to be > 0
     end
     it 'has a title' do
-      expect(writer.print_products.first[0]).to be_present # title
+      expect(writer.print_products.map{|x| x[0] }).to all(satisfy(&:present?))
     end
     it 'has a path' do
-      expect(writer.print_products.first[1]).to match(%r{\A/gp/product/}) # path
+      expect(writer.print_products.map{|x| x[1] }).to all(satisfy {|v| v =~ %r{\A/gp/product/} } )
     end
   end
 end
