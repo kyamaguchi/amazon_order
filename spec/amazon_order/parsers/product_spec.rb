@@ -28,7 +28,7 @@ describe AmazonOrder::Parsers::Product do
                     expect(product.title).to be_present
                     expect(product.path).to match(%r{\A/gp/product/})
                     expect(product.content).to be_present
-                    expect(product.image_url).to match(%r{/images/I/[^.]+\.jpg})
+                    expect(product.image_url).to match(%r{/images/})
                     expect(product.fetched_at).to be_present
                   end
 
