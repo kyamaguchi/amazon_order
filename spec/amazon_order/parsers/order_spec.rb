@@ -87,7 +87,7 @@ describe AmazonOrder::Parsers::Order do
       end
     end
 
-    context 'order with with home services' do
+    context 'order with home services' do
       let(:filepath) { 'spec/fixtures/files/order-2018-p1-20180129141532-contains-home-service.html' }
       let(:index_of_order) { 9 }
       include_examples 'generic order specs'
@@ -108,7 +108,7 @@ describe AmazonOrder::Parsers::Order do
       end
     end
 
-    context 'order with with physical shipments' do
+    context 'order with physical shipments' do
       let(:filepath) { 'spec/fixtures/files/order-2018-p1-20180129141532-contains-home-service.html' }
       let(:index_of_order) { 2 }
       include_examples 'generic order specs'
