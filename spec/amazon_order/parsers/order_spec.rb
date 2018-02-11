@@ -43,12 +43,6 @@ RSpec.shared_examples "generic order specs" do
   end
 end
 
-def ensure_fixture_filepath(path)
-  pending("Put your html in #{path} for testing") unless path && File.exists?(path)
-  path
-end
-
-
 describe AmazonOrder::Parsers::Order do
   let(:parser) { AmazonOrder::Parser.new(filepath) }
   let(:order) { parser.orders[index_of_order] }
