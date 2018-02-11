@@ -54,7 +54,6 @@ describe AmazonOrder::Parsers::Order do
   let(:order) { parser.orders[index_of_order] }
 
   context 'user fixtures' do
-    TARGET_DIR = ENV['ORDERS_DIR'].presence || 'spec/fixtures/files'
     Dir.glob("#{TARGET_DIR}/*html").each do |filepath|
       context "with file (#{filepath})" do
         let(:filepath) { filepath }
