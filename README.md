@@ -1,7 +1,6 @@
 # AmazonOrder
 
 [![Gem Version](https://badge.fury.io/rb/amazon_order.svg)](https://badge.fury.io/rb/amazon_order)
-[![Build Status](https://travis-ci.org/kyamaguchi/amazon_order.svg?branch=master)](https://travis-ci.org/kyamaguchi/amazon_order)
 
 Scrape information of amazon orders from amazon site
 
