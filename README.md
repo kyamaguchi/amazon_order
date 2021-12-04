@@ -1,6 +1,7 @@
 # AmazonOrder
 
 [![Gem Version](https://badge.fury.io/rb/amazon_order.svg)](https://badge.fury.io/rb/amazon_order)
+[![CircleCI](https://circleci.com/gh/kyamaguchi/amazon_order.svg?style=svg)](https://circleci.com/gh/kyamaguchi/amazon_order)
 
 Scrape information of amazon orders from amazon site
 
