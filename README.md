@@ -35,7 +35,7 @@ Or install it yourself as:
 
 ### Setup
 
-[chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads) is required. Please [download chromedriver](http://chromedriver.storage.googleapis.com/index.html) and update chromedriver regularly.  
+[chromedriver](https://sites.google.com/chromium.org/driver/) is required. Please [download chromedriver](https://chromedriver.storage.googleapis.com/index.html) and update chromedriver regularly.  
 
 Create credentials following the instructions of https://github.com/kyamaguchi/amazon_auth  
 Use `envchain` or _.env_
