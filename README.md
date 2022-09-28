@@ -164,7 +164,7 @@ ORDERS_DIR=/path/to/testapp/orders rspec spec/amazon_order/parser_spec.rb
 Test downloading of pages
 
 ```
-$ envchain amazon rspec spec/amazon_order/client_spec.rb
+$ envchain amazon bundle exec rspec spec/amazon_order/client_spec.rb
 ```
 
 ## Contributing
