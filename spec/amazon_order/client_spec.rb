@@ -13,7 +13,7 @@ describe AmazonOrder::Client do
   end
 
   it "fetches amazon orders successfully" do
-    client = AmazonOrder::Client.new(verbose: true, limit: 10)
+    client = AmazonOrder::Client.new(year_from: Time.current.year - 1, verbose: true, limit: 3)
     client.fetch_amazon_orders
     expect(client.session.current_url).to match(%r{/order-history})
     orders = client.load_amazon_orders
@@ -21,7 +21,7 @@ describe AmazonOrder::Client do
   end
 
   it "logins successfully with keeping cookie" do
-    client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 10)
+    client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 2)
     client.sign_in
     client.go_to_amazon_order_page
     expect(client.session.current_url).to match(%r{/order-history})
