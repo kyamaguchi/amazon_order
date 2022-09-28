@@ -92,7 +92,7 @@ module AmazonOrder
 
     def switch_year(year)
       return true if year.to_i == selected_year
-      session.first('.order-filter-dropdown .a-dropdown-prompt').click
+      session.first('.a-dropdown-container .a-dropdown-prompt').click
       option = session.all('.a-popover-wrapper .a-dropdown-link').find{|e| e.text.gsub(/\D+/,'').to_i == year.to_i }
       return false if option.nil?
       option.click
@@ -111,8 +111,8 @@ module AmazonOrder
     end
 
     def selected_year
-      wait_for_selector('#orderFilter')
-      doc.css('#orderFilter option').find{|o| !o.attr('selected').nil? }.attr('value').gsub(/\D+/,'').to_i
+      wait_for_selector('#time-filter')
+      doc.css('#time-filter option').find{|o| !o.attr('selected').nil? }.attr('value').gsub(/\D+/,'').to_i
     end
 
     def number_of_orders
