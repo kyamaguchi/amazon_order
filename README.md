@@ -35,7 +35,13 @@ Or install it yourself as:
 
 ### Setup
 
-[chromedriver](https://sites.google.com/chromium.org/driver/) is required. Please [download chromedriver](https://chromedriver.storage.googleapis.com/index.html) and update chromedriver regularly.  
+#### Chromedriver
+
+[chromedriver](https://sites.google.com/chromium.org/driver/) is required.  
+Now this gem relies on [webdrivers gem](https://github.com/titusfortner/webdrivers) to install/update chromedriver.  
+[List of chromedriver versions](https://chromedriver.storage.googleapis.com/index.html)
+
+#### Credentials
 
 Create credentials following the instructions of https://github.com/kyamaguchi/amazon_auth  
 Use `envchain` or _.env_
@@ -153,6 +159,12 @@ Test parsing of all your orders pages
 
 ```
 ORDERS_DIR=/path/to/testapp/orders rspec spec/amazon_order/parser_spec.rb
+```
+
+Test downloading of pages
+
+```
+$ envchain amazon rspec spec/amazon_order/client_spec.rb
 ```
 
 ## Contributing
