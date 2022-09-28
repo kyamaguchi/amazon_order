@@ -111,8 +111,8 @@ module AmazonOrder
     end
 
     def selected_year
-      wait_for_selector('#time-filter')
-      doc.css('#time-filter option').find{|o| !o.attr('selected').nil? }.attr('value').gsub(/\D+/,'').to_i
+      wait_for_selector('#time-filter, #orderFilter')
+      doc.css('#time-filter option, #orderFilter option').find{|o| !o.attr('selected').nil? }.attr('value').gsub(/\D+/,'').to_i
     end
 
     def number_of_orders
