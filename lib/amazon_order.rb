@@ -7,7 +7,6 @@ require "amazon_order/parsers/shipment"
 require "amazon_order/parsers/product"
 require "amazon_order/parser"
 require "amazon_order/writer"
-require 'webdrivers'
 
 module AmazonOrder
 end
