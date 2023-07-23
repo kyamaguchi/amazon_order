@@ -35,12 +35,6 @@ Or install it yourself as:
 
 ### Setup
 
-#### Chromedriver
-
-[chromedriver](https://sites.google.com/chromium.org/driver/) is required.  
-Now this gem relies on [webdrivers gem](https://github.com/titusfortner/webdrivers) to install/update chromedriver.  
-[List of chromedriver versions](https://chromedriver.storage.googleapis.com/index.html)
-
 #### Credentials
 
 Create credentials following the instructions of https://github.com/kyamaguchi/amazon_auth  
