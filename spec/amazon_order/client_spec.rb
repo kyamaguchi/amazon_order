@@ -15,7 +15,7 @@ describe AmazonOrder::Client do
   it "fetches amazon orders successfully" do
     client = AmazonOrder::Client.new(year_from: Time.current.year - 1, verbose: true, limit: 3)
     client.fetch_amazon_orders
-    expect(client.session.current_url).to match(%r{/order-history})
+    expect(client.session.current_url).to match(%r{/your-orders/orders})
     orders = client.load_amazon_orders
     expect(orders.size).to be > 0
   end
