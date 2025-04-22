@@ -18,4 +18,4 @@ workflows:
       - test:
           matrix:
             parameters:
-              ruby-version: ["3.0.6", "3.1.4", "3.2.2"]
+              ruby-version: ["3.2.8", "3.3.8", "3.4.3"]
