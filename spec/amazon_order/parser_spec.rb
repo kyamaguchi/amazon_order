@@ -28,6 +28,8 @@ describe AmazonOrder::Parser do
 
         it "has information" do
           expect(parser.fetched_at).to be_present
+          expect(parser.orders.size).to be > 0
+          # expect(parser.orders.size).to eq 10 # When checks exact count
         end
       end
     end
