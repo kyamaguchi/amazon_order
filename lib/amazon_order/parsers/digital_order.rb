@@ -1,10 +1,9 @@
 module AmazonOrder
   module Parsers
-    class Order < Base
+    class DigitalOrder < Base
       ATTRIBUTES = %w[
                      order_placed order_number order_total
                      order_details_path
-                     all_products_displayed
                    ]
 
       def order_placed
@@ -33,30 +32,8 @@ module AmazonOrder
         end
       end
 
-      def shipments
-        @_shipments ||= @node.css('.shipment')
-          .map do |shipment|
-          AmazonOrder::Parsers::Shipment.new(shipment,
-                                             containing_object: self,
-                                             fetched_at: fetched_at)
-        end
-      end
-
       def products
-        @products ||= shipment_products + digital_products
-      end
-
-      def shipment_products
-        @shipment_products ||= shipments.flat_map(&:products)
-      end
-
-      def digital_products
         @_products ||= @node.css('.a-box:not(.shipment) .a-fixed-left-grid').map { |e| AmazonOrder::Parsers::Product.new(e, fetched_at: fetched_at) }
-      end
-
-      # might be broken now that orders have multiple shipments
-      def all_products_displayed
-        @_all_products_displayed ||= @node.css('.a-box.order-info ~ .a-box .a-col-left .a-row').last.css('.a-link-emphasis').present?
       end
 
       def to_hash

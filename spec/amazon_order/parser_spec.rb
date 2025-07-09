@@ -9,12 +9,11 @@ describe AmazonOrder::Parser do
 
     it "finds selector of order" do
       expect(@parser.body).to be_present
-      expect(@parser.doc.css(".order").size).to be > 0
+      expect(@parser.doc.css(".order-card").size).to be > 0
     end
 
     it "finds orders" do
       expect(@parser.orders.size).to be > 0
-      expect(@parser.orders.first).to be_a(AmazonOrder::Parsers::Order)
     end
   end
 

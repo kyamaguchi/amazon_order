@@ -34,11 +34,6 @@ module AmazonOrder
           Date.new(m[:year].to_i, m[:month].to_i, m[:day].to_i)
         end
       end
-
-      def get_original_image_url(url)
-        parts = url.split('/')
-        (parts[0..-2] + [parts.last.split('.').values_at(0,-1).join('.')]).join('/')
-      end
     end
   end
 end

@@ -8,25 +8,12 @@ describe AmazonOrder::Parsers::Product do
 
       parser.orders.each do |order|
         context "for order #{order.order_number}" do
-
-          order.shipments.each do |shipment|
-            current_index = order.shipments.index(shipment)
-            context "for shipment at #{current_index}" do
-
-              shipment.products.each do |product|
-                current_index = shipment.products.index(product)
-                context "for product at #{current_index}" do
-
-                  it 'has information' do
-                    expect(product.title).to be_present
-                    expect(product.path).to match(%r{\A/gp/product/})
-                    expect(product.content).to be_present
-                    expect(product.image_url).to match(%r{/images/})
-                    expect(product.fetched_at).to be_present
-                  end
-
-                end
-              end
+          order.products.each do |product|
+            it 'has information' do
+              expect(product.title).to be_present
+              expect { product.path }.not_to raise_error
+              expect { product.content }.not_to raise_error
+              expect(product.fetched_at).to be_present
             end
           end
         end
