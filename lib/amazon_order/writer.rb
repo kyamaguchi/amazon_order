@@ -34,6 +34,8 @@ module AmazonOrder
       @_data ||= begin
         data = {'orders' => [], 'products' => []}
         Dir.glob(@file_glob_pattern).each do |filepath|
+          next unless File.file?(filepath)
+
           puts "    Parsing #{filepath}"
           parser = AmazonOrder::Parser.new(filepath)
           data['orders'] += parser.orders.map(&:values)

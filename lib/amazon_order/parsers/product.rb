@@ -5,7 +5,6 @@ module AmazonOrder
                      title
                      path
                      content
-                     image_url
                    ]
 
       def title
@@ -18,13 +17,6 @@ module AmazonOrder
 
       def content
         @_content ||= @node.css('.a-col-right .a-row')[1..-1].map(&:text).join.gsub(/\s+/, ' ').strip
-      end
-
-      def image_url
-        @_image_url ||= begin
-          img = @node.css('.a-col-left img')[0]
-          get_original_image_url(img.attr('data-a-hires').presence || img.attr('src'))
-        end
       end
     end
   end

@@ -41,8 +41,8 @@ module AmazonOrder
     def load_amazon_orders
       orders = []
       Dir.glob(file_glob_pattern).each do |filepath|
-        log "Loading #{filepath}"
         parser = AmazonOrder::Parser.new(filepath)
+        log "Loading #{filepath} with #{parser.orders.size} orders"
         orders += parser.orders
       end
       orders.sort_by{|o| -o.fetched_at.to_i }.uniq(&:order_number)

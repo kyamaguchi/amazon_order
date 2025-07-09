@@ -152,7 +152,7 @@ client = AmazonOrder::Client.new(debug: true)
 Test parsing of all your orders pages
 
 ```
-ORDERS_DIR=/path/to/testapp/orders rspec spec/amazon_order/parser_spec.rb
+ORDERS_DIR=/path/to/testapp/orders bundle exec rspec spec/amazon_order/parser_spec.rb
 ```
 
 Test downloading of pages

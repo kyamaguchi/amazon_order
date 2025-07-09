@@ -13,7 +13,15 @@ module AmazonOrder
     end
 
     def orders
-      @orders ||= doc.css(".order").map{|e| AmazonOrder::Parsers::Order.new(e, fetched_at: fetched_at) }
+      @orders ||= doc.css(".order-card").map do |e|
+        if e.css('.order-info').size == 1
+          AmazonOrder::Parsers::DigitalOrder.new(e, fetched_at: fetched_at)
+        elsif e.css('.order-header').size == 1
+          AmazonOrder::Parsers::NormalOrder.new(e, fetched_at: fetched_at)
+        else
+          raise("Unknown pattern: #{e}")
+        end
+      end
     end
 
     def doc
