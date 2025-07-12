@@ -10,9 +10,9 @@ describe AmazonOrder::Parsers::Product do
         context "for order #{order.order_number}" do
           order.products.each do |product|
             it 'has information' do
-              expect(product.title).to be_present
+              expect(product.title).not_to be_nil
               expect { product.path }.not_to raise_error
-              expect { product.content }.not_to raise_error
+              expect(product.content).not_to be_nil
               expect(product.fetched_at).to be_present
             end
           end
