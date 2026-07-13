@@ -153,6 +153,8 @@ Test parsing of all your orders pages
 
 ```
 ORDERS_DIR=/path/to/testapp/orders bundle exec rspec spec/amazon_order/parser_spec.rb
+ORDERS_DIR=/path/to/testapp/orders bundle exec rspec spec/amazon_order/parsers/order_spec.rb
+ORDERS_DIR=/path/to/testapp/orders bundle exec rspec spec/amazon_order/parsers/product_spec.rb
 ```
 
 Test downloading of pages
