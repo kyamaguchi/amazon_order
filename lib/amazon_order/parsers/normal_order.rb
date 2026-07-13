@@ -15,7 +15,7 @@ module AmazonOrder
       end
 
       def order_total
-        @_order_total ||= @node.css('.order-header .a-col-left .a-column')[1].text.split.last.gsub(/[^\d\.]/, '').to_f
+        @_order_total ||= required_node('.order-header .a-col-left .a-column', index: 1, context: 'order_total').text.split.last.gsub(/[^\d\.]/, '').to_f
       end
 
       def order_details_path

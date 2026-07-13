@@ -15,9 +15,9 @@ module AmazonOrder
     def orders
       @orders ||= doc.css(".order-card").map do |e|
         if e.css('.order-info').size == 1
-          AmazonOrder::Parsers::DigitalOrder.new(e, fetched_at: fetched_at)
+          AmazonOrder::Parsers::DigitalOrder.new(e, fetched_at: fetched_at, source_path: @filepath)
         elsif e.css('.order-header').size == 1
-          AmazonOrder::Parsers::NormalOrder.new(e, fetched_at: fetched_at)
+          AmazonOrder::Parsers::NormalOrder.new(e, fetched_at: fetched_at, source_path: @filepath)
         else
           raise("Unknown pattern: #{e}")
         end
