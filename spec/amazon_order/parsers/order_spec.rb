@@ -11,7 +11,7 @@ RSpec.shared_examples "generic order specs" do
     expect(order.order_placed).to be_a(Date)
     expect(order.order_total).to be_a(Numeric)
     expect(order.order_total.to_s).to match(/\A[\d\.]+\z/)
-    expect { order.order_details_path }.not_to raise_error
+    expect(order.order_details_path).not_to be_nil
     expect(order.fetched_at).to be_present
   end
 
