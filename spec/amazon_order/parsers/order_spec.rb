@@ -59,6 +59,32 @@ describe 'AmazonOrder::Parsers' do
         expect(order.order_details_path).to eq('/your-orders/order-details?orderID=000-0000000-0000000&ref=ppx_yo2ov_dt_b_fed_veo')
       end
 
+      it 'finds a search-based order details link' do
+        node = Nokogiri::HTML.fragment(<<~HTML)
+          <div class="order-card">
+            <div class="order-header">
+              <div class="a-col-right">
+                <div class="a-row">注文番号 000-0000000-0000000</div>
+                <div class="a-row">
+                  <a class="a-link-normal" href="/your-orders/search?search=digital-order-token&amp;ref=ppx_yo2ov_dt_b_fed_dss_shell_od_hz_search">
+                    注文内容を表示
+                  </a>
+                  <a class="a-link-normal" href="/your-orders/invoice/popover?orderId=digital-order-token&amp;ref_=fed_invoice_ajax_dss">
+                    請求書
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="product-image">
+              <a class="a-link-normal" href="/products/example-item?ref=ppx_yo2ov_dt_b_fed_asin_title">Example item</a>
+            </div>
+          </div>
+        HTML
+        order = described_class.new(node)
+
+        expect(order.order_details_path).to eq('/your-orders/search?search=digital-order-token&ref=ppx_yo2ov_dt_b_fed_dss_shell_od_hz_search')
+      end
+
       it 'raises ParseError with the order node HTML when the details link is missing' do
         node = Nokogiri::HTML.fragment(<<~HTML)
           <div class="order-card">
@@ -76,7 +102,7 @@ describe 'AmazonOrder::Parsers' do
           order.order_details_path
         }.to raise_error(AmazonOrder::Parsers::ParseError) { |error|
           expect(error.message).to include('AmazonOrder::Parsers::NormalOrder failed to parse order_details_path')
-          expect(error.message).to include('selector="a[href*=order-details]"')
+          expect(error.message).to include('selector="a[href*=order-details], a[href^=\"/your-orders/search\"]"')
           expect(error.message).to include('source_path="spec/fixtures/missing-details.html"')
           expect(error.message).to include('node_html=<div class="order-card">')
           expect(error.message).to include('<span>No details link</span>')
