@@ -19,7 +19,12 @@ module AmazonOrder
       end
 
       def order_details_path
-        @_order_details_path ||= @node.css('.order-header .a-col-right .a-row')[1].css('a.a-link-normal')[0].attr('href')
+        @_order_details_path ||= begin
+          details_row = required_node('.order-header .a-col-right .a-row', index: 1, context: 'order_details_path')
+          details_link = details_row.css('a.a-link-normal')[0] || raise_parse_error(selector: 'a.a-link-normal', index: 0, context: 'order_details_path')
+
+          details_link.attr('href')
+        end
       end
 
       def order_type

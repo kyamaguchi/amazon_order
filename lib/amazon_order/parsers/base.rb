@@ -50,20 +50,18 @@ module AmazonOrder
           "selector=#{selector.inspect}",
           "index=#{index}",
           "source_path=#{source_path.inspect}",
-          "node=#{short_node_snapshot}"
+          "node_html=#{node_html_snapshot}"
         ].compact.join(', ')
 
         raise ParseError, message
       end
 
-      def short_node_snapshot
-        snapshot = if @node.respond_to?(:to_html)
+      def node_html_snapshot
+        if @node.respond_to?(:to_html)
           @node.to_html
         else
-          @node.text
+          @node.text.to_s
         end
-
-        snapshot.to_s.gsub(/\s+/, ' ').strip[0, 500]
       end
     end
   end
