@@ -27,6 +27,34 @@ RSpec.shared_examples "generic order specs" do
 end
 
 describe 'AmazonOrder::Parsers' do
+
+  describe AmazonOrder::Parsers::NormalOrder do
+    describe '#order_details_path' do
+      it 'raises ParseError with the order node HTML when the details link is missing' do
+        node = Nokogiri::HTML.fragment(<<~HTML)
+          <div class="order-card">
+            <div class="order-header">
+              <div class="a-col-right">
+                <div class="a-row">ORDER # 123-1234567-1234567</div>
+                <div class="a-row"><span>No details link</span></div>
+              </div>
+            </div>
+          </div>
+        HTML
+        order = described_class.new(node, source_path: 'spec/fixtures/missing-details.html')
+
+        expect {
+          order.order_details_path
+        }.to raise_error(AmazonOrder::Parsers::ParseError) { |error|
+          expect(error.message).to include('AmazonOrder::Parsers::NormalOrder failed to parse order_details_path')
+          expect(error.message).to include('selector="a.a-link-normal"')
+          expect(error.message).to include('source_path="spec/fixtures/missing-details.html"')
+          expect(error.message).to include('node_html=<div class="order-card">')
+          expect(error.message).to include('<span>No details link</span>')
+        }
+      end
+    end
+  end
   let(:parser) { AmazonOrder::Parser.new(filepath) }
   let(:order) { parser.orders[index_of_order] }
 
