@@ -14,6 +14,8 @@ module AmazonOrder
 
     def orders
       @orders ||= doc.css(".order-card").map do |e|
+        next if canceled_without_order_total?(e)
+
         if e.css('.order-info').size == 1
           AmazonOrder::Parsers::DigitalOrder.new(e, fetched_at: fetched_at, source_path: @filepath)
         elsif e.css('.order-header').size == 1
@@ -21,7 +23,7 @@ module AmazonOrder
         else
           raise("Unknown pattern: #{e}")
         end
-      end
+      end.compact
     end
 
     def doc
@@ -30,6 +32,17 @@ module AmazonOrder
 
     def body
       @body ||= File.read(@filepath)
+    end
+
+    private
+
+    def canceled_without_order_total?(node)
+      return false unless node.css('.order-header').size == 1
+      return false unless node.css('.order-header .a-col-left .a-column')[1].nil?
+
+      node.css('.yohtmlc-shipment-status-primaryText, .delivery-box__primary-text').any? do |status_node|
+        status_node.text.strip == 'キャンセル済み'
+      end
     end
   end
 end
