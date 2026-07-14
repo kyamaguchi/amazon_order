@@ -57,11 +57,13 @@ module AmazonOrder
       end
 
       def node_html_snapshot
-        if @node.respond_to?(:to_html)
-          @node.to_html
-        else
-          @node.text.to_s
-        end
+        snapshot = if @node.respond_to?(:to_html)
+                     @node.to_html
+                   else
+                     @node.text.to_s
+                   end
+
+        snapshot.lines.reject { |line| line.strip.empty? }.join
       end
     end
   end

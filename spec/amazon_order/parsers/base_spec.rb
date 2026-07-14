@@ -21,5 +21,26 @@ RSpec.describe AmazonOrder::Parsers::Base do
         expect(error.message).to include('order-card')
       }
     end
+
+    it 'removes blank lines from the node HTML snapshot' do
+      node_with_blank_lines = Nokogiri::HTML.fragment(<<~HTML)
+        <div class="order-card">
+
+          <span class="present">ok</span>
+
+        </div>
+      HTML
+      parser = described_class.new(node_with_blank_lines)
+
+      expect {
+        parser.required_node('.missing', context: 'order_total')
+      }.to raise_error(AmazonOrder::Parsers::ParseError) { |error|
+        html = error.message[/node_html=(.*)\z/m, 1]
+
+        expect(html).to include('<div class="order-card">')
+        expect(html).to include('<span class="present">ok</span>')
+        expect(html).not_to include("\n\n")
+      }
+    end
   end
 end
