@@ -114,6 +114,28 @@ console> pp products.first.to_hash
  "https://images-fe.ssl-images-amazon.com/images/I/51TODrMIEnL.jpg"}
 ```
 
+
+#### Racecourse weather monitoring
+
+Monitor the daily forecast for JRA racecourses and list locations that exceed configurable weather thresholds. Forecasts are fetched from the Open-Meteo API using built-in racecourse coordinates.
+
+```ruby
+monitor = AmazonOrder::RacecourseWeatherMonitor.new(
+  thresholds: {
+    precipitation_probability: 60, # %
+    precipitation: 5.0,            # mm/day
+    wind_speed: 12.0,              # km/h
+    temperature_high: 35.0,        # °C
+    temperature_low: 0.0           # °C
+  }
+)
+
+monitor.weather_for(:tokyo)
+monitor.alerts([:tokyo, :kyoto, :hanshin])
+```
+
+Supported racecourse keys are `:sapporo`, `:hakodate`, `:fukushima`, `:niigata`, `:tokyo`, `:nakayama`, `:chukyo`, `:kyoto`, `:hanshin`, and `:kokura`.
+
 #### Export csv
 
 ```ruby

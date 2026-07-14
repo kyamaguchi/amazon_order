@@ -7,6 +7,7 @@ require "amazon_order/parsers/normal_order"
 require "amazon_order/parsers/product"
 require "amazon_order/parser"
 require "amazon_order/writer"
+require "amazon_order/racecourse_weather_monitor"
 
 module AmazonOrder
 end
