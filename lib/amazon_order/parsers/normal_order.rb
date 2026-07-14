@@ -20,8 +20,8 @@ module AmazonOrder
 
       def order_details_path
         @_order_details_path ||= begin
-          details_row = required_node('.order-header .a-col-right .a-row', index: 1, context: 'order_details_path')
-          details_link = details_row.css('a.a-link-normal')[0] || raise_parse_error(selector: 'a.a-link-normal', index: 0, context: 'order_details_path')
+          details_link = @node.css('a[href]').find { |link| order_details_link?(link) } ||
+                         raise_parse_error(selector: 'a[href*=order-details]', index: 0, context: 'order_details_path')
 
           details_link.attr('href')
         end
@@ -45,6 +45,14 @@ module AmazonOrder
         super do |hash|
           hash.merge!(products: products.map(&:to_hash))
         end
+      end
+
+      private
+
+      def order_details_link?(link)
+        href = link.attr('href').to_s
+
+        href.include?('/order-details') || href.include?('order-details?')
       end
 
     end
