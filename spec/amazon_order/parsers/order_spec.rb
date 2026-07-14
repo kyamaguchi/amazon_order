@@ -107,6 +107,26 @@ describe 'AmazonOrder::Parsers' do
         expect(order.order_details_path).to eq('/gp/digital/your-account/order-summary.html/ref=ppx_yo_dt_b_dor?ie=UTF8&orderID=digital-order-token')
       end
 
+      it 'finds an Audible order detail link' do
+        node = Nokogiri::HTML.fragment(<<~HTML)
+          <div class="order-card">
+            <div class="order-header">
+              <div class="a-col-right">
+                <div class="a-row">注文番号 D01-0000000-0000000</div>
+                <div class="a-row">
+                  <a class="a-link-normal" href="https://www.audible.co.jp/order-detail?orderNumber=audible-order-token&amp;orderType=REGULAR">
+                    注文内容を表示 <span class="a-color-secondary">(Audible.co.jp)</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        HTML
+        order = described_class.new(node)
+
+        expect(order.order_details_path).to eq('https://www.audible.co.jp/order-detail?orderNumber=audible-order-token&orderType=REGULAR')
+      end
+
       it 'raises ParseError with the order node HTML when the details link is missing' do
         node = Nokogiri::HTML.fragment(<<~HTML)
           <div class="order-card">
@@ -124,7 +144,7 @@ describe 'AmazonOrder::Parsers' do
           order.order_details_path
         }.to raise_error(AmazonOrder::Parsers::ParseError) { |error|
           expect(error.message).to include('AmazonOrder::Parsers::NormalOrder failed to parse order_details_path')
-          expect(error.message).to include('selector="a[href*=order-details], a[href*=order-summary.html], a[href^=\"/your-orders/search\"]"')
+          expect(error.message).to include('selector="a[href*=order-details], a[href*=order-detail], a[href*=order-summary.html], a[href^=\"/your-orders/search\"]"')
           expect(error.message).to include('source_path="spec/fixtures/missing-details.html"')
           expect(error.message).to include('node_html=<div class="order-card">')
           expect(error.message).to include('<span>No details link</span>')

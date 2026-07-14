@@ -21,7 +21,7 @@ module AmazonOrder
       def order_details_path
         @_order_details_path ||= begin
           details_link = @node.css('a[href]').find { |link| order_details_link?(link) } ||
-                         raise_parse_error(selector: 'a[href*=order-details], a[href*=order-summary.html], a[href^="/your-orders/search"]', index: 0, context: 'order_details_path')
+                         raise_parse_error(selector: 'a[href*=order-details], a[href*=order-detail], a[href*=order-summary.html], a[href^="/your-orders/search"]', index: 0, context: 'order_details_path')
 
           details_link.attr('href')
         end
@@ -54,6 +54,7 @@ module AmazonOrder
 
         href.include?('/order-details') ||
           href.include?('order-details?') ||
+          href.include?('order-detail?') ||
           href.include?('order-summary.html') ||
           order_search_link?(href)
       end
