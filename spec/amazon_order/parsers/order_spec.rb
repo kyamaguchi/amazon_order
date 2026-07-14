@@ -66,7 +66,7 @@ describe 'AmazonOrder::Parsers' do
               <div class="a-col-right">
                 <div class="a-row">注文番号 000-0000000-0000000</div>
                 <div class="a-row">
-                  <a class="a-link-normal" href="/your-orders/search?search=digital-order-token&amp;ref=ppx_yo2ov_dt_b_fed_dss_shell_od_hz_search">
+                  <a class="a-link-normal" href="/your-orders/search/ref=ppx_yo2ov_dt_b_search?ref_=example&amp;search=digital-order-token">
                     注文内容を表示
                   </a>
                   <a class="a-link-normal" href="/your-orders/invoice/popover?orderId=digital-order-token&amp;ref_=fed_invoice_ajax_dss">
@@ -82,7 +82,29 @@ describe 'AmazonOrder::Parsers' do
         HTML
         order = described_class.new(node)
 
-        expect(order.order_details_path).to eq('/your-orders/search?search=digital-order-token&ref=ppx_yo2ov_dt_b_fed_dss_shell_od_hz_search')
+        expect(order.order_details_path).to eq('/your-orders/search/ref=ppx_yo2ov_dt_b_search?ref_=example&search=digital-order-token')
+      end
+
+      it 'finds a digital order summary details link' do
+        node = Nokogiri::HTML.fragment(<<~HTML)
+          <div class="order-card">
+            <div class="order-info">
+              <div class="a-col-right">
+                <div class="a-row">
+                  <a class="a-link-normal yohtmlc-order-details-link" href="/gp/digital/your-account/order-summary.html/ref=ppx_yo_dt_b_dor?ie=UTF8&amp;orderID=digital-order-token">
+                    注文内容を表示
+                  </a>
+                  <a class="a-link-normal" href="/gp/digital/your-account/order-summary.html/ref=ppx_yo_dt_b_dpi?ie=UTF8&amp;orderID=digital-order-token&amp;print=1">
+                    印刷
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        HTML
+        order = described_class.new(node)
+
+        expect(order.order_details_path).to eq('/gp/digital/your-account/order-summary.html/ref=ppx_yo_dt_b_dor?ie=UTF8&orderID=digital-order-token')
       end
 
       it 'raises ParseError with the order node HTML when the details link is missing' do
@@ -102,7 +124,7 @@ describe 'AmazonOrder::Parsers' do
           order.order_details_path
         }.to raise_error(AmazonOrder::Parsers::ParseError) { |error|
           expect(error.message).to include('AmazonOrder::Parsers::NormalOrder failed to parse order_details_path')
-          expect(error.message).to include('selector="a[href*=order-details], a[href^=\"/your-orders/search\"]"')
+          expect(error.message).to include('selector="a[href*=order-details], a[href*=order-summary.html], a[href^=\"/your-orders/search\"]"')
           expect(error.message).to include('source_path="spec/fixtures/missing-details.html"')
           expect(error.message).to include('node_html=<div class="order-card">')
           expect(error.message).to include('<span>No details link</span>')
