@@ -37,10 +37,12 @@ module AmazonOrder
     def fetch_amazon_orders
       sign_in
       go_to_amazon_order_page
-      year_to.to_i.downto(year_from.to_i) do |year|
+      fetched_page_paths = year_to.to_i.downto(year_from.to_i).flat_map do |year|
         fetch_orders_for_year(year: year)
       end
-      fetch_order_details if options.fetch(:fetch_order_details, false)
+      if options.fetch(:fetch_order_details, false)
+        fetch_order_details(orders: parse_amazon_orders(fetched_page_paths))
+      end
     end
 
     # Fetches each order's detail page once. Order numbers, rather than URLs,
@@ -52,10 +54,11 @@ module AmazonOrder
         :continue_on_error,
         options.fetch(:continue_on_detail_error, true)
       )
+      orders = fetch_options.fetch(:orders) { load_amazon_orders }
       origin = order_history_origin
       seen = {}
 
-      load_amazon_orders.each do |order|
+      orders.each do |order|
         order_number = order.order_number.to_s
         path = order.order_details_path.to_s
         next if order_number.empty? || path.empty? || seen[order_number]
@@ -88,13 +91,7 @@ module AmazonOrder
     end
 
     def load_amazon_orders
-      orders = []
-      Dir.glob(file_glob_pattern).each do |filepath|
-        parser = AmazonOrder::Parser.new(filepath)
-        log "Loading #{filepath} with #{parser.orders.size} orders"
-        orders += parser.orders
-      end
-      orders.sort_by{|o| -o.fetched_at.to_i }.uniq(&:order_number)
+      parse_amazon_orders(Dir.glob(file_glob_pattern))
     end
 
     def file_glob_pattern
@@ -134,14 +131,16 @@ module AmazonOrder
 
     def fetch_orders_for_year(options = {})
       year = options.fetch(:year, Time.current.year)
+      saved_page_paths = []
       if switch_year(year)
-        save_page_for(year, current_page_node.try!(:text))
+        saved_page_paths << save_page_for(year, current_page_node.try!(:text))
         while (node = next_page_node) do
           session.visit node.attr('href')
-          save_page_for(year, current_page_node.text)
+          saved_page_paths << save_page_for(year, current_page_node.text)
           break if limit && limit <= current_page_node.text.to_i
         end
       end
+      saved_page_paths
     end
 
     def switch_year(year)
@@ -162,6 +161,7 @@ module AmazonOrder
       log "Saving year:#{year} page:#{page}"
       path = ['order', year.to_s, "p#{page}", Time.current.strftime('%Y%m%d%H%M%S')].join('-') + '.html'
       session.save_page(File.join(base_dir, path))
+      File.join(Capybara.save_path, base_dir, path)
     end
 
     def selected_year
@@ -184,6 +184,15 @@ module AmazonOrder
     end
 
     private
+
+    def parse_amazon_orders(filepaths)
+      orders = filepaths.flat_map do |filepath|
+        parser = AmazonOrder::Parser.new(filepath)
+        log "Loading #{filepath} with #{parser.orders.size} orders"
+        parser.orders
+      end
+      orders.sort_by{|o| -o.fetched_at.to_i }.uniq(&:order_number)
+    end
 
     def order_history_origin
       @order_history_origin ||= url_origin(session.current_url)

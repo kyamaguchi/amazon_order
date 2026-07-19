@@ -91,6 +91,12 @@ Detail HTML files are stored under `tmp/orders/details` (relative to
 `Capybara.save_path`). **These files can contain names, addresses, purchase
 history, and other personal information. Store and share them securely.**
 
+With the opt-in `fetch_order_details: true`, only orders found in the
+order-list pages downloaded by that `fetch_amazon_orders` run are considered.
+For example, `limit: 2` fetches details for those two new list pages, not every
+historical list page already under `tmp/orders`. Calling `fetch_order_details`
+separately continues to use all previously downloaded order-list pages.
+
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)
 

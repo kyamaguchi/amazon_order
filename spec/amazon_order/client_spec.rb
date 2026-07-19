@@ -3,6 +3,37 @@ require 'spec_helper'
 describe AmazonOrder::Client do
   Order = Struct.new(:order_number, :order_details_path)
 
+  describe '#fetch_amazon_orders with order details enabled' do
+    let(:auth_client) { double('amazon auth client') }
+    let(:client) do
+      AmazonOrder::Client.new(
+        fetch_order_details: true,
+        year_from: 2025,
+        year_to: 2025,
+        limit: 2
+      )
+    end
+
+    before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
+      allow(client).to receive(:sign_in)
+      allow(client).to receive(:go_to_amazon_order_page)
+    end
+
+    it 'fetches details only for order-list pages downloaded by the current run' do
+      current_paths = %w[tmp/orders/order-2025-p1.html tmp/orders/order-2025-p2.html]
+      current_orders = [Order.new('current-1', '/detail/1')]
+      allow(client).to receive(:fetch_orders_for_year).with(year: 2025).and_return(current_paths)
+      allow(client).to receive(:parse_amazon_orders).with(current_paths).and_return(current_orders)
+      allow(client).to receive(:fetch_order_details)
+      expect(client).not_to receive(:load_amazon_orders)
+
+      client.fetch_amazon_orders
+
+      expect(client).to have_received(:fetch_order_details).with(orders: current_orders)
+    end
+  end
+
   describe '#fetch_order_details' do
     let(:save_path) { "tmp/client-unit-#{Process.pid}" }
     let(:auth_client) { double('amazon auth client') }
