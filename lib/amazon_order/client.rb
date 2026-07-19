@@ -213,7 +213,7 @@ module AmazonOrder
     end
 
     def order_history_page?
-      session.current_url.to_s.match?(%r{/(?:your-orders/orders|gp/your-account/order-history)}) &&
+      session.current_url.to_s.match?(%r{/(?:your-orders/orders|gp/(?:your-account|css)/order-history)}) &&
         !authentication_page?
     end
 

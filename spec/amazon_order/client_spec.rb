@@ -70,6 +70,27 @@ describe AmazonOrder::Client do
     end
   end
 
+  describe '#go_to_amazon_order_page' do
+    let(:auth_client) { double('amazon auth client') }
+    let(:session) do
+      double(
+        'session',
+        current_url: 'https://www.amazon.co.jp//gp/css/order-history?ref_=nav_orders_first'
+      )
+    end
+    let(:client) { AmazonOrder::Client.new }
+
+    before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
+      allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<html><body>orders</body></html>'))
+    end
+
+    it 'recognizes the legacy gp/css order-history URL as a successful arrival' do
+      expect(client.go_to_amazon_order_page).to be true
+    end
+  end
+
   describe '#fetch_order_details' do
     let(:save_path) { "tmp/client-unit-#{Process.pid}" }
     let(:auth_client) { double('amazon auth client') }
