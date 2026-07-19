@@ -46,19 +46,19 @@ describe AmazonOrder::Client do
       allow(session).to receive(:visit)
     end
 
-    it 'revisits the Amazon origin and retries the underlying sign-in until it succeeds' do
-      allow(auth_client).to receive(:sign_in).and_return(false, false, true)
+    it 'accepts an authenticated page even when amazon_auth returns false' do
+      allow(auth_client).to receive(:sign_in).and_return(false)
 
       expect(client.sign_in_with_retry).to be true
 
-      expect(auth_client).to have_received(:sign_in).exactly(3).times
-      expect(session).to have_received(:visit).with('https://www.amazon.co.jp/').twice
-      expect(client).to have_received(:log).with(include('attempt 1/3 failed'))
-      expect(client).to have_received(:log).with(include('attempt 2/3 failed'))
+      expect(auth_client).to have_received(:sign_in).once
+      expect(session).not_to have_received(:visit)
     end
 
-    it 'raises after all underlying sign-in attempts fail' do
+    it 'raises after all attempts remain on an authentication page' do
       allow(auth_client).to receive(:sign_in).and_return(false)
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<input id="ap_email">'))
+      allow(session).to receive(:current_url).and_return('https://www.amazon.co.jp/ap/signin')
 
       expect { client.sign_in_with_retry }.to raise_error(
         AmazonOrder::Client::AuthenticationError,

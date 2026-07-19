@@ -120,9 +120,13 @@ module AmazonOrder
       1.upto(max_attempts) do |attempt|
         begin
           result = @client.sign_in
-          return true if result && !authentication_page?
+          # amazon_auth returns false when it cannot find signInSubmit, even
+          # when a stored session has already taken the browser to an
+          # authenticated Amazon page.  The page is more authoritative than
+          # that implementation-detail return value.
+          return true unless authentication_page?
           raise AuthenticationError,
-            "Amazon sign-in did not complete (current_url=#{session.current_url})"
+            "Amazon sign-in did not complete (result=#{result.inspect}, current_url=#{session.current_url})"
         rescue => e
           log "Amazon sign-in attempt #{attempt}/#{max_attempts} failed: #{e.message}"
           raise AuthenticationError, e.message if attempt == max_attempts
