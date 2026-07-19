@@ -35,8 +35,7 @@ module AmazonOrder
     end
 
     def fetch_amazon_orders
-      sign_in
-      go_to_amazon_order_page
+      sign_in_and_open_order_history
       fetched_page_paths = year_to.to_i.downto(year_from.to_i).flat_map do |year|
         fetch_orders_for_year(year: year)
       end
@@ -122,6 +121,8 @@ module AmazonOrder
     end
 
     def go_to_amazon_order_page
+      return true if order_history_page?
+
       if doc.css('.cvf-account-switcher').present?
         log "Account switcher page was displayed"
         session.first('.cvf-account-switcher-profile-details').click
@@ -131,9 +132,11 @@ module AmazonOrder
       if link.present?
         session.visit link
         @order_history_origin = url_origin(session.current_url)
+        return order_history_page?
       else
         log "Link for order history wasn't found in #{session.current_url}"
       end
+      false
     end
 
     def fetch_orders_for_year(options = {})
@@ -191,6 +194,32 @@ module AmazonOrder
     end
 
     private
+
+    def sign_in_and_open_order_history
+      max_attempts = options.fetch(:sign_in_attempts, 3).to_i
+      max_attempts = 1 if max_attempts < 1
+
+      1.upto(max_attempts) do |attempt|
+        begin
+          sign_in
+          return true if go_to_amazon_order_page
+          raise AuthenticationError,
+            "Amazon order history was not reached (current_url=#{session.current_url})"
+        rescue => e
+          log "Amazon sign-in attempt #{attempt}/#{max_attempts} failed: #{e.message}"
+          raise if attempt == max_attempts
+
+          retry_url = url_origin(session.current_url)
+          log "Retrying Amazon sign-in from #{retry_url}"
+          session.visit("#{retry_url}/") if retry_url
+        end
+      end
+    end
+
+    def order_history_page?
+      session.current_url.to_s.match?(%r{/(?:your-orders/orders|gp/your-account/order-history)}) &&
+        !authentication_page?
+    end
 
     def parse_amazon_orders(filepaths)
       orders = filepaths.flat_map do |filepath|

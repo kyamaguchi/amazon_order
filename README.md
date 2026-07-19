@@ -99,6 +99,11 @@ separately continues to use all previously downloaded order-list pages.
 With `debug: true`, detail downloads log the order number, URL, and progress
 such as `(7/20)`. Already-saved orders are excluded from that progress total.
 
+If sign-in returns without reaching the order-history page, the client revisits
+the Amazon origin and retries up to three times. Set `sign_in_attempts` to
+change the maximum number of attempts (for example, `sign_in_attempts: 1` to
+disable retries).
+
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)
 

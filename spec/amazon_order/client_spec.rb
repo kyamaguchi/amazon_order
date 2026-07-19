@@ -16,8 +16,7 @@ describe AmazonOrder::Client do
 
     before do
       allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
-      allow(client).to receive(:sign_in)
-      allow(client).to receive(:go_to_amazon_order_page)
+      allow(client).to receive(:sign_in_and_open_order_history)
     end
 
     it 'fetches details only for order-list pages downloaded by the current run' do
@@ -31,6 +30,33 @@ describe AmazonOrder::Client do
       client.fetch_amazon_orders
 
       expect(client).to have_received(:fetch_order_details).with(orders: current_orders)
+    end
+  end
+
+  describe 'sign-in retry from #fetch_amazon_orders' do
+    let(:auth_client) { double('amazon auth client') }
+    let(:session) { double('session', current_url: 'https://www.amazon.co.jp/') }
+    let(:client) do
+      AmazonOrder::Client.new(year_from: 2025, year_to: 2025, sign_in_attempts: 3)
+    end
+
+    before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
+      allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:sign_in)
+      allow(client).to receive(:go_to_amazon_order_page).and_return(false, false, true)
+      allow(client).to receive(:fetch_orders_for_year).and_return([])
+      allow(client).to receive(:log)
+      allow(session).to receive(:visit)
+    end
+
+    it 'revisits the Amazon origin and retries up to the configured attempt count' do
+      client.fetch_amazon_orders
+
+      expect(client).to have_received(:sign_in).exactly(3).times
+      expect(session).to have_received(:visit).with('https://www.amazon.co.jp/').twice
+      expect(client).to have_received(:log).with(include('attempt 1/3 failed'))
+      expect(client).to have_received(:log).with(include('attempt 2/3 failed'))
     end
   end
 
