@@ -9,6 +9,7 @@ describe AmazonOrder::Client do
     let(:client) { AmazonOrder::Client.new(base_dir: 'orders') }
 
     before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(double('amazon auth client'))
       Capybara.save_path = save_path
       allow(client).to receive(:session).and_return(session)
       allow(client).to receive(:wait_for_selector).with('body')
