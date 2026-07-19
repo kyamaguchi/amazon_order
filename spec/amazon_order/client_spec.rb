@@ -33,41 +33,40 @@ describe AmazonOrder::Client do
     end
   end
 
-  describe 'sign-in retry from #fetch_amazon_orders' do
+  describe '#sign_in' do
     let(:auth_client) { double('amazon auth client') }
+    let(:amazon_auth_sign_in) { double('amazon_auth sign_in') }
     let(:session) { double('session', current_url: 'https://www.amazon.co.jp/') }
-    let(:client) do
-      AmazonOrder::Client.new(year_from: 2025, year_to: 2025, sign_in_attempts: 3)
-    end
+    let(:client) { AmazonOrder::Client.new(sign_in_attempts: 3) }
 
     before do
       allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
       allow(client).to receive(:session).and_return(session)
-      allow(client).to receive(:order_history_page?).and_return(false)
-      allow(client).to receive(:sign_in)
-      allow(client).to receive(:go_to_amazon_order_page).and_return(false, false, true)
-      allow(client).to receive(:fetch_orders_for_year).and_return([])
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<html><body>home</body></html>'))
       allow(client).to receive(:log)
       allow(session).to receive(:visit)
+      client.instance_variable_set(:@amazon_auth_sign_in, amazon_auth_sign_in)
     end
 
-    it 'revisits the Amazon origin and retries up to the configured attempt count' do
-      client.fetch_amazon_orders
+    it 'revisits the Amazon origin and retries the underlying sign-in until it succeeds' do
+      allow(amazon_auth_sign_in).to receive(:call).and_return(false, false, true)
 
-      expect(client).to have_received(:sign_in).exactly(3).times
+      expect(client.sign_in).to be true
+
+      expect(amazon_auth_sign_in).to have_received(:call).exactly(3).times
       expect(session).to have_received(:visit).with('https://www.amazon.co.jp/').twice
       expect(client).to have_received(:log).with(include('attempt 1/3 failed'))
       expect(client).to have_received(:log).with(include('attempt 2/3 failed'))
     end
 
-    it 'raises after all attempts finish without reaching order history' do
-      allow(client).to receive(:go_to_amazon_order_page).and_return(false)
+    it 'raises after all underlying sign-in attempts fail' do
+      allow(amazon_auth_sign_in).to receive(:call).and_return(false)
 
-      expect { client.fetch_amazon_orders }.to raise_error(
+      expect { client.sign_in }.to raise_error(
         AmazonOrder::Client::AuthenticationError,
-        include('order history was not reached')
+        include('sign-in did not complete')
       )
-      expect(client).to have_received(:sign_in).exactly(3).times
+      expect(amazon_auth_sign_in).to have_received(:call).exactly(3).times
     end
   end
 
