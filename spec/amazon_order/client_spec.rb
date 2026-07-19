@@ -5,11 +5,12 @@ describe AmazonOrder::Client do
 
   describe '#fetch_order_details' do
     let(:save_path) { "tmp/client-unit-#{Process.pid}" }
+    let(:auth_client) { double('amazon auth client') }
     let(:session) { double('session', current_url: 'https://www.amazon.co.jp/your-orders/orders') }
     let(:client) { AmazonOrder::Client.new(base_dir: 'orders') }
 
     before do
-      allow(AmazonAuth::Client).to receive(:new).and_return(double('amazon auth client'))
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
       Capybara.save_path = save_path
       allow(client).to receive(:session).and_return(session)
       allow(client).to receive(:wait_for_selector).with('body')
@@ -91,6 +92,25 @@ describe AmazonOrder::Client do
       expect(session).to have_received(:visit).with('https://www.amazon.co.jp/detail/2')
       expect(session).to have_received(:save_page).once.with(include('order-detail-ok-2-'))
       expect(client).to have_received(:log).with(include('order=failed-1', 'url=https://www.amazon.co.jp/detail/1'))
+    end
+  end
+
+  describe '#sign_in' do
+    let(:auth_client) { double('amazon auth client', sign_in: nil) }
+    let(:session) { double('session', current_url: 'https://www.amazon.co.jp/ap/signin') }
+    let(:client) { AmazonOrder::Client.new }
+
+    before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
+      allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<input id="ap_email">'))
+    end
+
+    it 'stops immediately when amazon_auth leaves the browser on a sign-in page' do
+      expect { client.sign_in }.to raise_error(
+        AmazonOrder::Client::AuthenticationError,
+        include('https://www.amazon.co.jp/ap/signin')
+      )
     end
   end
 

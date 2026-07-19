@@ -2,6 +2,8 @@ require 'uri'
 
 module AmazonOrder
   class Client
+    class AuthenticationError < StandardError; end
+
     include AmazonAuth::CommonExtension
 
     attr_accessor :session, :options
@@ -109,6 +111,10 @@ module AmazonOrder
 
     def sign_in
       @client.sign_in
+      return unless authentication_page?
+
+      raise AuthenticationError,
+        "Amazon sign-in did not complete (current_url=#{session.current_url})"
     end
 
     def go_to_amazon_order_page
