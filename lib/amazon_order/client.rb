@@ -12,8 +12,6 @@ module AmazonOrder
       @options = options
       @client = AmazonAuth::Client.new(@options)
       extend(AmazonAuth::SessionExtension)
-      @amazon_auth_sign_in = method(:sign_in)
-      define_singleton_method(:sign_in) { sign_in_with_retry }
     end
 
     def base_dir
@@ -115,6 +113,27 @@ module AmazonOrder
       @_writer ||= AmazonOrder::Writer.new(file_glob_pattern)
     end
 
+    def sign_in_with_retry
+      max_attempts = options.fetch(:sign_in_attempts, 3).to_i
+      max_attempts = 1 if max_attempts < 1
+
+      1.upto(max_attempts) do |attempt|
+        begin
+          result = @client.sign_in
+          return true if result && !authentication_page?
+          raise AuthenticationError,
+            "Amazon sign-in did not complete (current_url=#{session.current_url})"
+        rescue => e
+          log "Amazon sign-in attempt #{attempt}/#{max_attempts} failed: #{e.message}"
+          raise AuthenticationError, e.message if attempt == max_attempts
+
+          retry_url = url_origin(session.current_url)
+          log "Retrying Amazon sign-in from #{retry_url}"
+          session.visit("#{retry_url}/") if retry_url
+        end
+      end
+    end
+
     def go_to_amazon_order_page
       return true if order_history_page?
 
@@ -190,27 +209,6 @@ module AmazonOrder
 
     private
 
-    def sign_in_with_retry
-      max_attempts = options.fetch(:sign_in_attempts, 3).to_i
-      max_attempts = 1 if max_attempts < 1
-
-      1.upto(max_attempts) do |attempt|
-        begin
-          result = @amazon_auth_sign_in.call
-          return true if result && !authentication_page?
-          raise AuthenticationError,
-            "Amazon sign-in did not complete (current_url=#{session.current_url})"
-        rescue => e
-          log "Amazon sign-in attempt #{attempt}/#{max_attempts} failed: #{e.message}"
-          raise AuthenticationError, e.message if attempt == max_attempts
-
-          retry_url = url_origin(session.current_url)
-          log "Retrying Amazon sign-in from #{retry_url}"
-          session.visit("#{retry_url}/") if retry_url
-        end
-      end
-    end
-
     def ensure_order_history_session
       return true if order_history_page?
 
@@ -218,7 +216,7 @@ module AmazonOrder
     end
 
     def sign_in_and_open_order_history
-      sign_in
+      sign_in_with_retry
       return true if go_to_amazon_order_page
 
       raise AuthenticationError,

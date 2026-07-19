@@ -66,7 +66,7 @@ client.fetch_orders_for_year(year: 2016)
 
 # Fetch all pages of specified year
 client = AmazonOrder::Client.new(limit: nil)
-client.sign_in
+client.sign_in_with_retry
 client.go_to_amazon_order_page
 client.fetch_orders_for_year(year: 2015)
 ```
@@ -81,7 +81,7 @@ stop the remaining downloads by default (`continue_on_error: false` makes the
 first failure abort the operation).
 
 ```ruby
-client.sign_in
+client.sign_in_with_retry
 client.go_to_amazon_order_page
 client.fetch_order_details
 client.fetch_order_details(force: true, continue_on_error: false)
@@ -105,7 +105,7 @@ separately continues to use all previously downloaded order-list pages.
 With `debug: true`, detail downloads log the order number, URL, and progress
 such as `(7/20)`. Already-saved orders are excluded from that progress total.
 
-`client.sign_in` retries up to three times when the underlying `amazon_auth`
+`client.sign_in_with_retry` retries up to three times when the underlying `amazon_auth`
 sign-in returns false, raises an error, or leaves the browser on an
 authentication page. Before each retry it revisits the Amazon origin. Set
 `sign_in_attempts` to change the maximum number of attempts (for example,
