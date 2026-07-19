@@ -35,7 +35,7 @@ module AmazonOrder
     end
 
     def fetch_amazon_orders
-      sign_in_and_open_order_history
+      ensure_order_history_session
       fetched_page_paths = year_to.to_i.downto(year_from.to_i).flat_map do |year|
         fetch_orders_for_year(year: year)
       end
@@ -48,6 +48,7 @@ module AmazonOrder
     # identify orders because Amazon adds non-stable reference parameters to
     # detail links.
     def fetch_order_details(fetch_options = {})
+      ensure_order_history_session
       force = fetch_options.fetch(:force, options.fetch(:force_order_details, false))
       continue_on_error = fetch_options.fetch(
         :continue_on_error,
@@ -80,7 +81,7 @@ module AmazonOrder
           session.visit(url)
           wait_for_selector('body')
           if authentication_page?
-            raise "authentication page was displayed"
+            raise AuthenticationError, "authentication page was displayed"
           end
 
           filename = [
@@ -91,7 +92,7 @@ module AmazonOrder
           session.save_page(File.join(base_dir, 'details', filename))
         rescue => e
           log "Failed to fetch order detail #{progress}: order=#{order_number} url=#{url} error=#{e.message}"
-          raise unless continue_on_error
+          raise if e.is_a?(AuthenticationError) || !continue_on_error
         end
       end
     end
@@ -190,6 +191,12 @@ module AmazonOrder
     end
 
     private
+
+    def ensure_order_history_session
+      return true if order_history_page?
+
+      sign_in_and_open_order_history
+    end
 
     def sign_in_and_open_order_history
       max_attempts = options.fetch(:sign_in_attempts, 3).to_i

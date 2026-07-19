@@ -16,7 +16,7 @@ describe AmazonOrder::Client do
 
     before do
       allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
-      allow(client).to receive(:sign_in_and_open_order_history)
+      allow(client).to receive(:ensure_order_history_session)
     end
 
     it 'fetches details only for order-list pages downloaded by the current run' do
@@ -43,6 +43,7 @@ describe AmazonOrder::Client do
     before do
       allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
       allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:order_history_page?).and_return(false)
       allow(client).to receive(:sign_in)
       allow(client).to receive(:go_to_amazon_order_page).and_return(false, false, true)
       allow(client).to receive(:fetch_orders_for_year).and_return([])
@@ -101,6 +102,7 @@ describe AmazonOrder::Client do
       allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
       Capybara.save_path = save_path
       allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:ensure_order_history_session)
       allow(client).to receive(:wait_for_selector).with('body')
       allow(client).to receive(:doc).and_return(Nokogiri::HTML('<html><body>detail</body></html>'))
       allow(client).to receive(:log)
@@ -169,7 +171,10 @@ describe AmazonOrder::Client do
         'https://www.amazon.co.jp/ap/signin'
       )
 
-      client.fetch_order_details
+      expect { client.fetch_order_details }.to raise_error(
+        AmazonOrder::Client::AuthenticationError,
+        'authentication page was displayed'
+      )
 
       expect(session).not_to have_received(:save_page)
       expect(client).to have_received(:log).with(
@@ -190,6 +195,31 @@ describe AmazonOrder::Client do
       expect(client).to have_received(:log).with(
         include('Failed to fetch order detail', 'order=failed-1', 'url=https://www.amazon.co.jp/detail/1')
       )
+    end
+  end
+
+  describe '#fetch_order_details authentication' do
+    let(:auth_client) { double('amazon auth client') }
+    let(:session) { double('session', current_url: 'https://www.amazon.co.jp/ap/signin') }
+    let(:client) { AmazonOrder::Client.new }
+
+    before do
+      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
+      allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<input id="ap_email">'))
+      allow(client).to receive(:sign_in_and_open_order_history).and_raise(
+        AmazonOrder::Client::AuthenticationError,
+        'sign-in failed after 3 attempts'
+      )
+      allow(client).to receive(:load_amazon_orders)
+    end
+
+    it 'authenticates before loading saved orders and stops when authentication fails' do
+      expect { client.fetch_order_details }.to raise_error(
+        AmazonOrder::Client::AuthenticationError,
+        include('3 attempts')
+      )
+      expect(client).not_to have_received(:load_amazon_orders)
     end
   end
 

@@ -87,6 +87,12 @@ client.fetch_order_details
 client.fetch_order_details(force: true, continue_on_error: false)
 ```
 
+Standalone `fetch_order_details` verifies the authenticated order-history
+session (using the same sign-in retry behavior) before loading saved lists or
+requesting any detail page. It stops immediately if authentication still fails.
+If authentication expires during the detail loop, fetching also stops even
+when `continue_on_error` is enabled; authentication failures are never skipped.
+
 Detail HTML files are stored under `tmp/orders/details` (relative to
 `Capybara.save_path`). **These files can contain names, addresses, purchase
 history, and other personal information. Store and share them securely.**
