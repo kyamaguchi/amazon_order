@@ -1,34 +1,132 @@
 require 'spec_helper'
 
 describe AmazonOrder::Client do
-  before do
-    skip('set your amazon credentials using envchain. See README and amazon_auth gem.') unless ENV['AMAZON_USERNAME_CODE']
-    Capybara.save_path = "tmp/testdir/#{Time.now.strftime('%Y%m%d%H%M%S')}" # Switch working directory to start without the file for cookie
+  Order = Struct.new(:order_number, :order_details_path)
+
+  describe '#fetch_order_details' do
+    let(:save_path) { "tmp/client-unit-#{Process.pid}" }
+    let(:session) { double('session', current_url: 'https://www.amazon.co.jp/your-orders/orders') }
+    let(:client) { AmazonOrder::Client.new(base_dir: 'orders') }
+
+    before do
+      Capybara.save_path = save_path
+      allow(client).to receive(:session).and_return(session)
+      allow(client).to receive(:wait_for_selector).with('body')
+      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<html><body>detail</body></html>'))
+      allow(client).to receive(:log)
+      allow(session).to receive(:visit)
+      allow(session).to receive(:save_page)
+    end
+
+    after do
+      Capybara.save_path = 'tmp'
+      FileUtils.rm_rf(save_path)
+    end
+
+    def orders(*values)
+      allow(client).to receive(:load_amazon_orders).and_return(values)
+    end
+
+    it 'deduplicates by order number, resolves relative links against the original origin, and saves safely' do
+      orders(
+        Order.new('123/45:*?', '/gp/order-details?ref_=one'),
+        Order.new('123/45:*?', 'https://www.amazon.co.jp/gp/order-details?ref_=two')
+      )
+
+      client.fetch_order_details
+
+      expect(session).to have_received(:visit).once.with('https://www.amazon.co.jp/gp/order-details?ref_=one')
+      expect(session).to have_received(:save_page).once.with(
+        match(%r{\Aorders/details/order-detail-123_45-\d+\.html\z})
+      )
+    end
+
+    it 'visits Amazon and Audible absolute URLs without changing them' do
+      orders(
+        Order.new('amazon-1', 'https://www.amazon.com/gp/order-details?id=1'),
+        Order.new('audible-1', 'https://www.audible.co.jp/account/purchase-history?id=2')
+      )
+
+      client.fetch_order_details
+
+      expect(session).to have_received(:visit).with('https://www.amazon.com/gp/order-details?id=1')
+      expect(session).to have_received(:visit).with('https://www.audible.co.jp/account/purchase-history?id=2')
+    end
+
+    it 'skips an existing detail unless force is enabled' do
+      orders(Order.new('existing-1', '/detail/1'))
+      directory = File.join(save_path, 'orders', 'details')
+      FileUtils.mkdir_p(directory)
+      File.write(File.join(directory, 'order-detail-existing-1-20200101000000000.html'), 'saved')
+
+      client.fetch_order_details
+      expect(session).not_to have_received(:visit)
+
+      client.fetch_order_details(force: true)
+      expect(session).to have_received(:visit).once
+    end
+
+    it 'does not save a sign-in redirect' do
+      orders(Order.new('auth-1', '/detail/1'))
+      allow(session).to receive(:current_url).and_return(
+        'https://www.amazon.co.jp/your-orders/orders',
+        'https://www.amazon.co.jp/ap/signin'
+      )
+
+      client.fetch_order_details
+
+      expect(session).not_to have_received(:save_page)
+      expect(client).to have_received(:log).with(include('order=auth-1', 'url=https://www.amazon.co.jp/detail/1'))
+    end
+
+    it 'logs one failed order and continues with the next one' do
+      orders(Order.new('failed-1', '/detail/1'), Order.new('ok-2', '/detail/2'))
+      allow(session).to receive(:visit) do |url|
+        raise 'network failure' if url.end_with?('/detail/1')
+      end
+
+      client.fetch_order_details(continue_on_error: true)
+
+      expect(session).to have_received(:visit).with('https://www.amazon.co.jp/detail/2')
+      expect(session).to have_received(:save_page).once.with(include('order-detail-ok-2-'))
+      expect(client).to have_received(:log).with(include('order=failed-1', 'url=https://www.amazon.co.jp/detail/1'))
+    end
   end
 
-  after do
-    # Restore the default not to affect other spec
-    Capybara.save_path = 'tmp'
-    FileUtils.rm_rf('tmp/testdir') if File.exist?('tmp/testdir')
-  end
+  describe 'live Amazon access' do
+    before do
+      skip('set your amazon credentials using envchain. See README and amazon_auth gem.') unless ENV['AMAZON_USERNAME_CODE']
+    end
 
-  it "fetches amazon orders successfully" do
-    client = AmazonOrder::Client.new(year_from: Time.current.year - 1, verbose: true, limit: 3)
-    client.fetch_amazon_orders
-    expect(client.session.current_url).to match(%r{/your-orders/orders})
-    orders = client.load_amazon_orders
-    expect(orders.size).to be > 0
-  end
+    before do
+      # Switch working directory to start without the file for cookie
+      Capybara.save_path = "tmp/testdir/#{Time.now.strftime('%Y%m%d%H%M%S')}"
+    end
 
-  it "logins successfully with keeping cookie" do
-    client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 2)
-    client.sign_in
-    client.go_to_amazon_order_page
-    expect(client.session.current_url).to match(%r{/order-history})
+    after do
+      # Restore the default not to affect other spec
+      Capybara.save_path = 'tmp'
+      FileUtils.rm_rf('tmp/testdir') if File.exist?('tmp/testdir')
+    end
 
-    client.session.reset!
-    client.sign_in
-    client.go_to_amazon_order_page
-    expect(client.session.current_url).to match(%r{/order-history})
+    it "fetches amazon orders successfully" do
+      client = AmazonOrder::Client.new(year_from: Time.current.year - 1, verbose: true, limit: 3)
+      client.fetch_amazon_orders
+      expect(client.session.current_url).to match(%r{/your-orders/orders})
+      orders = client.load_amazon_orders
+      expect(orders.size).to be > 0
+    end
+
+    it "logins successfully with keeping cookie" do
+      client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 2)
+      client.sign_in
+      client.go_to_amazon_order_page
+      expect(client.session.current_url).to match(%r{/order-history})
+
+      client.session.reset!
+      client.sign_in
+      client.go_to_amazon_order_page
+      expect(client.session.current_url).to match(%r{/order-history})
+    end
   end
 end

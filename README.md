@@ -58,6 +58,9 @@ In console
 require 'amazon_order'
 client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 10)
 client.fetch_amazon_orders
+# Fetch order-list pages and then each order detail (opt-in)
+client = AmazonOrder::Client.new(fetch_order_details: true)
+client.fetch_amazon_orders
 # Fetch orders of specified year
 client.fetch_orders_for_year(year: 2016)
 
@@ -70,6 +73,23 @@ client.fetch_orders_for_year(year: 2015)
 
 Downloaded pages will be stored into `tmp/orders` directory.  
 `tmp` comes from `Capybara.save_path`.  
+
+Order details can also be fetched separately after the order-list pages have
+been downloaded. Existing details are skipped by order number by default; pass
+`force: true` to download them again. A failed order is logged and does not
+stop the remaining downloads by default (`continue_on_error: false` makes the
+first failure abort the operation).
+
+```ruby
+client.sign_in
+client.go_to_amazon_order_page
+client.fetch_order_details
+client.fetch_order_details(force: true, continue_on_error: false)
+```
+
+Detail HTML files are stored under `tmp/orders/details` (relative to
+`Capybara.save_path`). **These files can contain names, addresses, purchase
+history, and other personal information. Store and share them securely.**
 
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)

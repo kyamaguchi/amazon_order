@@ -1,3 +1,5 @@
+require 'uri'
+
 module AmazonOrder
   class Client
     include AmazonAuth::CommonExtension
@@ -36,6 +38,51 @@ module AmazonOrder
       year_to.to_i.downto(year_from.to_i) do |year|
         fetch_orders_for_year(year: year)
       end
+      fetch_order_details if options.fetch(:fetch_order_details, false)
+    end
+
+    # Fetches each order's detail page once. Order numbers, rather than URLs,
+    # identify orders because Amazon adds non-stable reference parameters to
+    # detail links.
+    def fetch_order_details(fetch_options = {})
+      force = fetch_options.fetch(:force, options.fetch(:force_order_details, false))
+      continue_on_error = fetch_options.fetch(
+        :continue_on_error,
+        options.fetch(:continue_on_detail_error, true)
+      )
+      origin = order_history_origin
+      seen = {}
+
+      load_amazon_orders.each do |order|
+        order_number = order.order_number.to_s
+        path = order.order_details_path.to_s
+        next if order_number.empty? || path.empty? || seen[order_number]
+        seen[order_number] = true
+
+        filename_order_number = sanitized_order_number(order_number)
+        if !force && detail_already_saved?(filename_order_number)
+          log "Skipping saved order detail: order=#{order_number} url=#{path}"
+          next
+        end
+
+        url = absolute_order_details_url(path, origin)
+        begin
+          session.visit(url)
+          wait_for_selector('body')
+          if authentication_page?
+            raise "authentication page was displayed"
+          end
+
+          filename = [
+            'order-detail', filename_order_number,
+            Time.current.strftime('%Y%m%d%H%M%S%L')
+          ].join('-') + '.html'
+          session.save_page(File.join(base_dir, 'details', filename))
+        rescue => e
+          log "Failed to fetch order detail: order=#{order_number} url=#{url} error=#{e.message}"
+          raise unless continue_on_error
+        end
+      end
     end
 
     def load_amazon_orders
@@ -73,6 +120,7 @@ module AmazonOrder
       link = links_for('a').find{|link| link =~ %r{/order-history} }
       if link.present?
         session.visit link
+        @order_history_origin = url_origin(session.current_url)
       else
         log "Link for order history wasn't found in #{session.current_url}"
       end
@@ -127,6 +175,47 @@ module AmazonOrder
     def next_page_node
       wait_for_selector('.a-pagination .a-selected')
       doc.css('.a-pagination .a-selected ~ .a-normal').css('a').first
+    end
+
+    private
+
+    def order_history_origin
+      @order_history_origin ||= url_origin(session.current_url)
+      raise ArgumentError, 'The order history page URL is required to resolve relative detail links' if @order_history_origin.nil?
+      @order_history_origin
+    end
+
+    def url_origin(url)
+      uri = URI.parse(url.to_s)
+      return nil unless uri.is_a?(URI::HTTP) && uri.host
+      "#{uri.scheme}://#{uri.host}#{uri.port == uri.default_port ? '' : ":#{uri.port}"}"
+    rescue URI::InvalidURIError
+      nil
+    end
+
+    def absolute_order_details_url(path, origin)
+      uri = URI.parse(path)
+      uri.is_a?(URI::HTTP) ? uri.to_s : URI.join("#{origin}/", path).to_s
+    end
+
+    def sanitized_order_number(order_number)
+      sanitized = order_number.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+                              .gsub(/[^0-9A-Za-z._-]+/, '_')
+                              .gsub(/\A[._-]+|[._-]+\z/, '')
+      sanitized.empty? ? 'unknown' : sanitized
+    end
+
+    def detail_already_saved?(filename_order_number)
+      pattern = File.join(
+        Capybara.save_path, base_dir, 'details',
+        "order-detail-#{filename_order_number}-*.html"
+      )
+      Dir.glob(pattern).any?
+    end
+
+    def authentication_page?
+      session.current_url.to_s.match?(%r{/(?:ap/)?signin(?:[/?]|$)|/ap/cvf/}) ||
+        doc.css('form[name="signIn"], #ap_email, #ap_password').any?
     end
   end
 end
