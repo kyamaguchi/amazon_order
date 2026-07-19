@@ -96,6 +96,8 @@ order-list pages downloaded by that `fetch_amazon_orders` run are considered.
 For example, `limit: 2` fetches details for those two new list pages, not every
 historical list page already under `tmp/orders`. Calling `fetch_order_details`
 separately continues to use all previously downloaded order-list pages.
+With `debug: true`, detail downloads log the order number, URL, and progress
+such as `(7/20)`. Already-saved orders are excluded from that progress total.
 
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)

@@ -57,6 +57,7 @@ module AmazonOrder
       orders = fetch_options.fetch(:orders) { load_amazon_orders }
       origin = order_history_origin
       seen = {}
+      details_to_fetch = []
 
       orders.each do |order|
         order_number = order.order_number.to_s
@@ -70,8 +71,13 @@ module AmazonOrder
           next
         end
 
-        url = absolute_order_details_url(path, origin)
+        details_to_fetch << [order_number, filename_order_number, absolute_order_details_url(path, origin)]
+      end
+
+      details_to_fetch.each_with_index do |(order_number, filename_order_number, url), index|
+        progress = "(#{index + 1}/#{details_to_fetch.size})"
         begin
+          log "Fetching order detail #{progress}: order=#{order_number} url=#{url}"
           session.visit(url)
           wait_for_selector('body')
           if authentication_page?
@@ -82,9 +88,10 @@ module AmazonOrder
             'order-detail', filename_order_number,
             Time.current.strftime('%Y%m%d%H%M%S%L')
           ].join('-') + '.html'
+          log "Saving order detail #{progress}: order=#{order_number} url=#{url}"
           session.save_page(File.join(base_dir, 'details', filename))
         rescue => e
-          log "Failed to fetch order detail: order=#{order_number} url=#{url} error=#{e.message}"
+          log "Failed to fetch order detail #{progress}: order=#{order_number} url=#{url} error=#{e.message}"
           raise unless continue_on_error
         end
       end

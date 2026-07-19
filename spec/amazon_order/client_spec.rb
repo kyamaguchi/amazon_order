@@ -84,6 +84,12 @@ describe AmazonOrder::Client do
 
       expect(session).to have_received(:visit).with('https://www.amazon.com/gp/order-details?id=1')
       expect(session).to have_received(:visit).with('https://www.audible.co.jp/account/purchase-history?id=2')
+      expect(client).to have_received(:log).with(
+        include('Fetching order detail (1/2)', 'order=amazon-1')
+      )
+      expect(client).to have_received(:log).with(
+        include('Saving order detail (2/2)', 'order=audible-1')
+      )
     end
 
     it 'skips an existing detail unless force is enabled' do
