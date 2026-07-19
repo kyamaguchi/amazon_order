@@ -114,10 +114,6 @@ module AmazonOrder
 
     def sign_in
       @client.sign_in
-      return unless authentication_page?
-
-      raise AuthenticationError,
-        "Amazon sign-in did not complete (current_url=#{session.current_url})"
     end
 
     def go_to_amazon_order_page

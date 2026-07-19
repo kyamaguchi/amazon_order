@@ -58,6 +58,16 @@ describe AmazonOrder::Client do
       expect(client).to have_received(:log).with(include('attempt 1/3 failed'))
       expect(client).to have_received(:log).with(include('attempt 2/3 failed'))
     end
+
+    it 'raises after all attempts finish without reaching order history' do
+      allow(client).to receive(:go_to_amazon_order_page).and_return(false)
+
+      expect { client.fetch_amazon_orders }.to raise_error(
+        AmazonOrder::Client::AuthenticationError,
+        include('order history was not reached')
+      )
+      expect(client).to have_received(:sign_in).exactly(3).times
+    end
   end
 
   describe '#fetch_order_details' do
@@ -141,7 +151,9 @@ describe AmazonOrder::Client do
       client.fetch_order_details
 
       expect(session).not_to have_received(:save_page)
-      expect(client).to have_received(:log).with(include('order=auth-1', 'url=https://www.amazon.co.jp/detail/1'))
+      expect(client).to have_received(:log).with(
+        include('Failed to fetch order detail', 'order=auth-1', 'url=https://www.amazon.co.jp/detail/1')
+      )
     end
 
     it 'logs one failed order and continues with the next one' do
@@ -154,25 +166,8 @@ describe AmazonOrder::Client do
 
       expect(session).to have_received(:visit).with('https://www.amazon.co.jp/detail/2')
       expect(session).to have_received(:save_page).once.with(include('order-detail-ok-2-'))
-      expect(client).to have_received(:log).with(include('order=failed-1', 'url=https://www.amazon.co.jp/detail/1'))
-    end
-  end
-
-  describe '#sign_in' do
-    let(:auth_client) { double('amazon auth client', sign_in: nil) }
-    let(:session) { double('session', current_url: 'https://www.amazon.co.jp/ap/signin') }
-    let(:client) { AmazonOrder::Client.new }
-
-    before do
-      allow(AmazonAuth::Client).to receive(:new).and_return(auth_client)
-      allow(client).to receive(:session).and_return(session)
-      allow(client).to receive(:doc).and_return(Nokogiri::HTML('<input id="ap_email">'))
-    end
-
-    it 'stops immediately when amazon_auth leaves the browser on a sign-in page' do
-      expect { client.sign_in }.to raise_error(
-        AmazonOrder::Client::AuthenticationError,
-        include('https://www.amazon.co.jp/ap/signin')
+      expect(client).to have_received(:log).with(
+        include('Failed to fetch order detail', 'order=failed-1', 'url=https://www.amazon.co.jp/detail/1')
       )
     end
   end
