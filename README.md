@@ -58,18 +58,61 @@ In console
 require 'amazon_order'
 client = AmazonOrder::Client.new(keep_cookie: true, verbose: true, limit: 10)
 client.fetch_amazon_orders
+# Fetch order-list pages and then each order detail (opt-in)
+client = AmazonOrder::Client.new(fetch_order_details: true)
+client.fetch_amazon_orders
 # Fetch orders of specified year
 client.fetch_orders_for_year(year: 2016)
 
 # Fetch all pages of specified year
 client = AmazonOrder::Client.new(limit: nil)
-client.sign_in
+client.sign_in_with_retry
 client.go_to_amazon_order_page
 client.fetch_orders_for_year(year: 2015)
 ```
 
 Downloaded pages will be stored into `tmp/orders` directory.  
 `tmp` comes from `Capybara.save_path`.  
+
+#### Fetch order details
+
+Order details can also be fetched separately after the order-list pages have
+been downloaded. Existing details are skipped by order number by default; pass
+`force: true` to download them again. A failed order is logged and does not
+stop the remaining downloads by default (`continue_on_error: false` makes the
+first failure abort the operation).
+
+```ruby
+client.sign_in_with_retry
+client.go_to_amazon_order_page
+client.fetch_order_details
+client.fetch_order_details(force: true, continue_on_error: false)
+```
+
+Standalone `fetch_order_details` verifies the authenticated order-history
+session (using the same sign-in retry behavior) before loading saved lists or
+requesting any detail page. It stops immediately if authentication still fails.
+If authentication expires during the detail loop, fetching also stops even
+when `continue_on_error` is enabled; authentication failures are never skipped.
+
+Detail HTML files are stored under `tmp/orders/details` (relative to
+`Capybara.save_path`). **These files can contain names, addresses, purchase
+history, and other personal information. Store and share them securely.**
+
+With the opt-in `fetch_order_details: true`, only orders found in the
+order-list pages downloaded by that `fetch_amazon_orders` run are considered.
+For example, `limit: 2` fetches details for those two new list pages, not every
+historical list page already under `tmp/orders`. Calling `fetch_order_details`
+separately continues to use all previously downloaded order-list pages.
+With `debug: true`, detail downloads log the order number, URL, and progress
+such as `(7/20)`. Already-saved orders are excluded from that progress total.
+
+`client.sign_in_with_retry` retries up to three times when the underlying `amazon_auth`
+sign-in returns false, raises an error, or leaves the browser on an
+authentication page. Before each retry it revisits the Amazon origin. Set
+`sign_in_attempts` to change the maximum number of attempts (for example,
+`sign_in_attempts: 1` to disable retries). Order fetching additionally verifies
+that the successfully authenticated browser reaches the order-history page.
 
 Once `fetch_amazon_orders` succeeds, you can load orders information of downloaded pages anytime.
 (You don't need to fetch pages with launching browser every time.)
