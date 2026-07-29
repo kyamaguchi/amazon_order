@@ -80,6 +80,7 @@ module AmazonOrder
       orders = fetch_options.fetch(:orders) { load_amazon_orders }
       origin = order_history_origin
       candidates = {}
+      conflicted = {}
       results = []
 
       orders.each do |order|
@@ -87,23 +88,29 @@ module AmazonOrder
         path = order.order_details_path.to_s
         if order_number.empty?
           results << detail_result(nil, nil, :failed, :missing_identity)
+          raise DetailFetchError, 'missing_identity' unless continue_on_error
           next
         end
+        next if conflicted[order_number]
         final_path = detail_path(order_number)
         if path.empty?
           results << detail_result(order_number, final_path, :failed, :missing_link)
+          raise DetailFetchError, 'missing_link' unless continue_on_error
           next
         end
         begin
           url = absolute_order_details_url(path, origin)
         rescue URI::InvalidURIError
           results << detail_result(order_number, final_path, :failed, :invalid_url)
+          raise DetailFetchError, 'invalid_url' unless continue_on_error
           next
         end
         if candidates.key?(order_number)
           if candidates[order_number][:link_identity] != detail_link_identity(url)
             candidates.delete(order_number)
+            conflicted[order_number] = true
             results << detail_result(order_number, final_path, :failed, :conflicting_links)
+            raise DetailFetchError, 'conflicting_links' unless continue_on_error
           end
           next
         end

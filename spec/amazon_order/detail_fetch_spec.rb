@@ -131,6 +131,47 @@ describe 'safe order detail fetching' do
     expect(result.downloaded.size).to eq(1)
   end
 
+  it 'applies fail-fast behavior to candidate validation failures' do
+    invalid_cases = [
+      [Order.new(nil, '/detail/missing-identity'), :missing_identity],
+      [Order.new('missing-link', nil), :missing_link],
+      [Order.new('invalid-url', 'http://['), :invalid_url]
+    ]
+
+    invalid_cases.each do |invalid_order, reason|
+      expect do
+        client.fetch_order_details(orders: [invalid_order, order], continue_on_error: false)
+      end.to raise_error(AmazonOrder::Client::DetailFetchError, reason.to_s)
+    end
+    expect(session).not_to have_received(:visit)
+  end
+
+  it 'fails fast on conflicting links before visiting candidates' do
+    conflicting = [
+      Order.new(identity, "/gp/css/order-details?orderID=#{identity}"),
+      Order.new(identity, "/gp/css/order-details?orderID=#{identity}-different"),
+      order
+    ]
+
+    expect do
+      client.fetch_order_details(orders: conflicting, continue_on_error: false)
+    end.to raise_error(AmazonOrder::Client::DetailFetchError, 'conflicting_links')
+    expect(session).not_to have_received(:visit)
+  end
+
+  it 'does not reintroduce a conflicted identity from later duplicates' do
+    conflicting = [
+      Order.new(identity, "/gp/css/order-details?orderID=#{identity}"),
+      Order.new(identity, "/gp/css/order-details?orderID=#{identity}-different"),
+      Order.new(identity, "/gp/css/order-details?orderID=#{identity}")
+    ]
+
+    result = client.fetch_order_details(orders: conflicting)
+
+    expect(result.failed.map(&:reason)).to eq([:conflicting_links])
+    expect(session).not_to have_received(:visit)
+  end
+
   it 'never logs raw identities or complete URLs' do
     client.fetch_order_details(orders: [order])
     messages = logs.join('\n')
