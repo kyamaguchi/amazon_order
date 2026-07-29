@@ -21,4 +21,3 @@ describe AmazonOrder::Parsers::Product do
     end
   end
 end
-

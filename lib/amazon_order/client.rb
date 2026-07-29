@@ -1,8 +1,30 @@
 require 'uri'
+require 'digest'
+require 'fileutils'
+require 'tempfile'
+require 'pathname'
 
 module AmazonOrder
   class Client
     class AuthenticationError < StandardError; end
+    class DetailFetchError < StandardError; end
+    class DetailSaveError < StandardError; end
+
+    DetailResult = Struct.new(:order_identity, :path, :status, :reason, :diagnostic, keyword_init: true)
+    DetailSnapshot = Struct.new(:order_identity, :path, :html, keyword_init: true)
+    DetailLoadBatchResult = Struct.new(:loaded, :failed, keyword_init: true) do
+      include Enumerable
+      def each(&block); loaded.each(&block); end
+      def size; loaded.size; end
+      def empty?; loaded.empty?; end
+      def success?; failed.empty?; end
+    end
+    DetailBatchResult = Struct.new(:entries, keyword_init: true) do
+      def downloaded; entries.select { |entry| entry.status == :downloaded }; end
+      def skipped; entries.select { |entry| entry.status == :skipped }; end
+      def failed; entries.select { |entry| entry.status == :failed }; end
+      def success?; failed.empty?; end
+    end
 
     include AmazonAuth::CommonExtension
 
@@ -50,55 +72,160 @@ module AmazonOrder
     def fetch_order_details(fetch_options = {})
       ensure_order_history_session
       force = fetch_options.fetch(:force, options.fetch(:force_order_details, false))
+      freshness = fetch_options.fetch(:freshness, fetch_options.fetch(:ttl, options[:order_details_freshness]))
       continue_on_error = fetch_options.fetch(
         :continue_on_error,
         options.fetch(:continue_on_detail_error, true)
       )
       orders = fetch_options.fetch(:orders) { load_amazon_orders }
       origin = order_history_origin
-      seen = {}
-      details_to_fetch = []
+      candidates = {}
+      conflicted = {}
+      results = []
 
       orders.each do |order|
         order_number = order.order_number.to_s
         path = order.order_details_path.to_s
-        next if order_number.empty? || path.empty? || seen[order_number]
-        seen[order_number] = true
-
-        filename_order_number = sanitized_order_number(order_number)
-        if !force && detail_already_saved?(filename_order_number)
-          log "Skipping saved order detail: order=#{order_number} url=#{path}"
+        if order_number.empty?
+          results << detail_result(nil, nil, :failed, :missing_identity)
+          raise DetailFetchError, 'missing_identity' unless continue_on_error
           next
         end
-
-        details_to_fetch << [order_number, filename_order_number, absolute_order_details_url(path, origin)]
+        next if conflicted[order_number]
+        final_path = detail_path(order_number)
+        if path.empty?
+          results << detail_result(order_number, final_path, :failed, :missing_link)
+          raise DetailFetchError, 'missing_link' unless continue_on_error
+          next
+        end
+        begin
+          url = absolute_order_details_url(path, origin)
+        rescue URI::InvalidURIError
+          results << detail_result(order_number, final_path, :failed, :invalid_url)
+          raise DetailFetchError, 'invalid_url' unless continue_on_error
+          next
+        end
+        if candidates.key?(order_number)
+          if candidates[order_number][:link_identity] != detail_link_identity(url)
+            candidates.delete(order_number)
+            conflicted[order_number] = true
+            results << detail_result(order_number, final_path, :failed, :conflicting_links)
+            raise DetailFetchError, 'conflicting_links' unless continue_on_error
+          end
+          next
+        end
+        candidates[order_number] = { url: url, path: final_path, link_identity: detail_link_identity(url) }
       end
 
-      details_to_fetch.each_with_index do |(order_number, filename_order_number, url), index|
-        progress = "(#{index + 1}/#{details_to_fetch.size})"
+      candidates.each_with_index do |(order_number, candidate), index|
+        url = candidate[:url]
+        final_path = candidate[:path]
+        progress = "(#{index + 1}/#{candidates.size})"
         begin
-          log "Fetching order detail #{progress}: order=#{order_number} url=#{url}"
-          session.visit(url)
-          wait_for_selector('body')
-          if authentication_page?
-            raise AuthenticationError, "authentication page was displayed"
-          end
+          detail_directory = File.expand_path(File.dirname(final_path))
+          FileUtils.mkdir_p(detail_directory)
+          lock_path = "#{final_path}.lock"
+          File.open(lock_path, File::RDWR | File::CREAT, 0600) do |lock|
+            lock.flock(File::LOCK_EX)
+            if !force && valid_detail_file?(final_path, order_number) && fresh_detail?(final_path, freshness)
+              safe_detail_log('Skipping saved order detail', progress, order_number, :fresh_snapshot)
+              results << detail_result(order_number, final_path, :skipped, :fresh_snapshot)
+              next
+            end
 
-          filename = [
-            'order-detail', filename_order_number,
-            Time.current.strftime('%Y%m%d%H%M%S%L')
-          ].join('-') + '.html'
-          log "Saving order detail #{progress}: order=#{order_number} url=#{url}"
-          session.save_page(File.join(base_dir, 'details', filename))
+            safe_detail_log('Fetching order detail', progress, order_number, :download)
+            session.visit(url)
+            wait_for_selector('body')
+            raise AuthenticationError, 'authentication page was displayed' if authentication_page?
+
+            temporary = Tempfile.new(['.order-detail-', '.tmp'], detail_directory)
+            temporary_path = temporary.path
+            temporary.close
+            begin
+              relative_temporary_path = Pathname.new(temporary_path).relative_path_from(
+                Pathname.new(Capybara.save_path).expand_path
+              ).to_s
+              begin
+                session.save_page(relative_temporary_path)
+                File.open(temporary_path, 'r+') { |file| file.flush; file.fsync }
+              rescue => e
+                raise DetailSaveError, e.class.name
+              end
+              validation = validate_detail_html(File.binread(temporary_path), order_number)
+              raise DetailFetchError, validation unless validation == :valid
+              begin
+                File.rename(temporary_path, final_path)
+              rescue => e
+                raise DetailSaveError, e.class.name
+              end
+              results << detail_result(order_number, final_path, :downloaded, :downloaded)
+              safe_detail_log('Saved order detail', progress, order_number, :downloaded)
+            ensure
+              FileUtils.rm_f(temporary_path) if temporary_path
+            end
+          end
         rescue => e
-          log "Failed to fetch order detail #{progress}: order=#{order_number} url=#{url} error=#{e.message}"
+          reason = detail_failure_reason(e)
+          results << detail_result(order_number, final_path, :failed, reason)
+          safe_detail_log('Failed to fetch order detail', progress, order_number, reason)
           raise if e.is_a?(AuthenticationError) || !continue_on_error
         end
       end
+      DetailBatchResult.new(entries: results)
     end
 
     def load_amazon_orders
       parse_amazon_orders(Dir.glob(file_glob_pattern))
+    end
+
+    # Loads already-saved, valid detail snapshots without authenticating or
+    # making a network request. Order objects provide the identity-to-digest
+    # mapping because raw identities are intentionally absent from filenames.
+    def load_order_details(load_options = {})
+      orders = load_options.fetch(:orders) { load_amazon_orders }.to_a
+      seen = {}
+      loaded = []
+      failed = []
+
+      orders.each_with_index do |order, index|
+        progress = "(#{index + 1}/#{orders.size})"
+        order_identity = order.order_number.to_s
+        if order_identity.empty?
+          failed << detail_result(nil, nil, :failed, :missing_identity)
+          safe_detail_log('Failed to load order detail', progress, nil, :missing_identity)
+          next
+        end
+        next if seen[order_identity]
+        seen[order_identity] = true
+
+        path = detail_path(order_identity)
+        unless File.file?(path)
+          failed << detail_result(order_identity, path, :failed, :missing_snapshot)
+          safe_detail_log('Failed to load order detail', progress, order_identity, :missing_snapshot)
+          next
+        end
+        begin
+          html = File.binread(path)
+        rescue SystemCallError
+          failed << detail_result(order_identity, path, :failed, :load_failed)
+          safe_detail_log('Failed to load order detail', progress, order_identity, :load_failed)
+          next
+        end
+        validation = validate_detail_html(html, order_identity)
+        unless validation == :valid
+          failed << detail_result(order_identity, path, :failed, validation)
+          safe_detail_log('Failed to load order detail', progress, order_identity, validation)
+          next
+        end
+
+        loaded << DetailSnapshot.new(
+          order_identity: order_identity,
+          path: path,
+          html: html
+        )
+        safe_detail_log('Loaded order detail', progress, order_identity, :loaded)
+      end
+      DetailLoadBatchResult.new(loaded: loaded, failed: failed)
     end
 
     def file_glob_pattern
@@ -257,22 +384,74 @@ module AmazonOrder
 
     def absolute_order_details_url(path, origin)
       uri = URI.parse(path)
-      uri.is_a?(URI::HTTP) ? uri.to_s : URI.join("#{origin}/", path).to_s
+      resolved = uri.is_a?(URI::HTTP) ? uri : URI.join("#{origin}/", path)
+      raise URI::InvalidURIError, 'detail URL must use HTTP(S)' unless resolved.is_a?(URI::HTTP) && resolved.host
+      resolved.to_s
     end
 
-    def sanitized_order_number(order_number)
-      sanitized = order_number.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
-                              .gsub(/[^0-9A-Za-z._-]+/, '_')
-                              .gsub(/\A[._-]+|[._-]+\z/, '')
-      sanitized.empty? ? 'unknown' : sanitized
+    def detail_path(order_number)
+      digest = Digest::SHA256.hexdigest(order_number.to_s)
+      File.join(Capybara.save_path, base_dir, 'details', "order-detail-#{digest}.html")
     end
 
-    def detail_already_saved?(filename_order_number)
-      pattern = File.join(
-        Capybara.save_path, base_dir, 'details',
-        "order-detail-#{filename_order_number}-*.html"
+    # Amazon varies tracking reference parameters between otherwise identical
+    # links. They do not participate in the order/link consistency check.
+    def detail_link_identity(url)
+      uri = URI.parse(url)
+      query = URI.decode_www_form(uri.query.to_s).reject { |key, _value| key == 'ref' || key == 'ref_' }
+      uri.query = query.empty? ? nil : URI.encode_www_form(query.sort)
+      uri.fragment = nil
+      uri.to_s
+    end
+
+    def validate_detail_html(html, order_number)
+      return :empty_document if html.to_s.strip.empty?
+      return :truncated_document unless html.match?(%r{</body>\s*</html>\s*\z}i)
+      detail_doc = Nokogiri::HTML(html)
+      identity = detail_doc.at_css('div[data-component="orderId"]')
+      return :missing_order_identity unless identity
+      return :wrong_order_identity unless identity.text.strip == order_number.to_s
+      return :missing_shipments unless detail_doc.at_css('div[data-component="shipments"]')
+      return :missing_shipment_status unless detail_doc.at_css('div[data-component="shipmentStatus"]')
+      :valid
+    end
+
+    def valid_detail_file?(path, order_number)
+      File.file?(path) && validate_detail_html(File.binread(path), order_number) == :valid
+    rescue SystemCallError
+      false
+    end
+
+    def fresh_detail?(path, freshness)
+      return true if freshness.nil?
+      (detail_now - File.mtime(path)) <= freshness.to_f
+    end
+
+    def detail_now
+      clock = options[:clock]
+      clock ? clock.call : Time.now
+    end
+
+    def detail_result(identity, path, status, reason)
+      DetailResult.new(
+        order_identity: identity,
+        path: path,
+        status: status,
+        reason: reason,
+        diagnostic: reason.to_s
       )
-      Dir.glob(pattern).any?
+    end
+
+    def detail_failure_reason(error)
+      return :authentication_required if error.is_a?(AuthenticationError)
+      return error.message.to_sym if error.is_a?(DetailFetchError)
+      return :save_failed if error.is_a?(DetailSaveError) || error.is_a?(SystemCallError) || error.is_a?(IOError)
+      :fetch_failed
+    end
+
+    def safe_detail_log(action, progress, identity, reason)
+      correlation = Digest::SHA256.hexdigest(identity.to_s)[0, 12]
+      log "#{action} #{progress}: order_ref=#{correlation} reason=#{reason}"
     end
 
     def authentication_page?

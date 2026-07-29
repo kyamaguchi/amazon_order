@@ -129,7 +129,7 @@ describe AmazonOrder::Client do
 
       expect(session).to have_received(:visit).once.with('https://www.amazon.co.jp/gp/order-details?ref_=one')
       expect(session).to have_received(:save_page).once.with(
-        match(%r{\Aorders/details/order-detail-123_45-\d+\.html\z})
+        match(%r{\Aorders/details/\.order-detail-.+\.tmp\z})
       )
     end
 
@@ -144,10 +144,7 @@ describe AmazonOrder::Client do
       expect(session).to have_received(:visit).with('https://www.amazon.com/gp/order-details?id=1')
       expect(session).to have_received(:visit).with('https://www.audible.co.jp/account/purchase-history?id=2')
       expect(client).to have_received(:log).with(
-        include('Fetching order detail (1/2)', 'order=amazon-1')
-      )
-      expect(client).to have_received(:log).with(
-        include('Saving order detail (2/2)', 'order=audible-1')
+        include('Fetching order detail (1/2)', 'order_ref=')
       )
     end
 
@@ -155,7 +152,8 @@ describe AmazonOrder::Client do
       orders(Order.new('existing-1', '/detail/1'))
       directory = File.join(save_path, 'orders', 'details')
       FileUtils.mkdir_p(directory)
-      File.write(File.join(directory, 'order-detail-existing-1-20200101000000000.html'), 'saved')
+      path = client.send(:detail_path, 'existing-1')
+      File.write(path, File.read('spec/fixtures/order_details/normal-sanitized.html').sub('111-0000002-0000002', 'existing-1'))
 
       client.fetch_order_details
       expect(session).not_to have_received(:visit)
@@ -178,7 +176,7 @@ describe AmazonOrder::Client do
 
       expect(session).not_to have_received(:save_page)
       expect(client).to have_received(:log).with(
-        include('Failed to fetch order detail', 'order=auth-1', 'url=https://www.amazon.co.jp/detail/1')
+        include('Failed to fetch order detail', 'order_ref=')
       )
     end
 
@@ -187,13 +185,20 @@ describe AmazonOrder::Client do
       allow(session).to receive(:visit) do |url|
         raise 'network failure' if url.end_with?('/detail/1')
       end
+      allow(session).to receive(:save_page) do |relative_path|
+        fixture = File.read('spec/fixtures/order_details/normal-sanitized.html', encoding: 'UTF-8')
+        File.binwrite(
+          File.join(Capybara.save_path, relative_path),
+          fixture.sub('111-0000002-0000002', 'ok-2')
+        )
+      end
 
       client.fetch_order_details(continue_on_error: true)
 
       expect(session).to have_received(:visit).with('https://www.amazon.co.jp/detail/2')
-      expect(session).to have_received(:save_page).once.with(include('order-detail-ok-2-'))
+      expect(session).to have_received(:save_page).once.with(include('.order-detail-'))
       expect(client).to have_received(:log).with(
-        include('Failed to fetch order detail', 'order=failed-1', 'url=https://www.amazon.co.jp/detail/1')
+        include('Failed to fetch order detail', 'order_ref=')
       )
     end
   end
