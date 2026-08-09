@@ -4,6 +4,22 @@ RSpec.describe AmazonOrder::Parsers::Base do
   let(:node) { Nokogiri::HTML.fragment('<div class="order-card"><span class="present">ok</span></div>') }
   let(:parser) { described_class.new(node, source_path: 'spec/fixtures/source.html') }
 
+  describe '#inspect' do
+    it 'does not eagerly parse attributes or expose the source node' do
+      inspectable_class = Class.new(described_class) do
+        def missing_value
+          required_node('.missing', context: 'missing_value').text
+        end
+      end
+      inspectable_class.const_set(:ATTRIBUTES, %w[missing_value])
+      stub_const('InspectableParser', inspectable_class)
+      inspectable = InspectableParser.new(node)
+
+      expect(inspectable.inspect).to match(/\A#<InspectableParser:0x[0-9a-f]+>\z/)
+      expect(inspectable.inspect).not_to include('order-card', 'missing_value')
+    end
+  end
+
   describe '#required_node' do
     it 'returns the node matching selector and index' do
       expect(parser.required_node('.present', context: 'title').text).to eq('ok')

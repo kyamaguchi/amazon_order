@@ -133,18 +133,26 @@ describe AmazonOrder::Client do
       )
     end
 
-    it 'visits Amazon and Audible absolute URLs without changing them' do
+    it 'visits Amazon absolute URLs and logs Audible details as skipped' do
       orders(
         Order.new('amazon-1', 'https://www.amazon.com/gp/order-details?id=1'),
         Order.new('audible-1', 'https://www.audible.co.jp/account/purchase-history?id=2')
       )
 
-      client.fetch_order_details
+      result = client.fetch_order_details
 
       expect(session).to have_received(:visit).with('https://www.amazon.com/gp/order-details?id=1')
-      expect(session).to have_received(:visit).with('https://www.audible.co.jp/account/purchase-history?id=2')
+      expect(session).not_to have_received(:visit).with('https://www.audible.co.jp/account/purchase-history?id=2')
+      expect(result.skipped.map(&:reason)).to include(:unsupported_audible_detail)
       expect(client).to have_received(:log).with(
         include('Fetching order detail (1/2)', 'order_ref=')
+      )
+      expect(client).to have_received(:log).with(
+        include(
+          'Skipping Audible order detail (2/2)',
+          'order_ref=',
+          'reason=unsupported_audible_detail'
+        )
       )
     end
 

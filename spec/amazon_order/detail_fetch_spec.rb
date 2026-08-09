@@ -96,13 +96,34 @@ describe 'safe order detail fetching' do
     expect(client.fetch_order_details(orders: [order], ttl: 3600).downloaded.size).to eq(1)
   end
 
+  it 'stops cleanly after the configured number of new downloads' do
+    second = Order.new('111-0000003-0000003', '/detail/second')
+
+    result = client.fetch_order_details(orders: [order, second], max_downloads: 1)
+
+    expect(result.downloaded.size).to eq(1)
+    expect(result.failed).to be_empty
+    expect(result).to be_success
+    expect(result).not_to be_complete
+    expect(result).to be_stopped_early
+    expect(result.stop_reason).to eq(:download_limit_reached)
+    expect(session).to have_received(:visit).once
+    expect(logs).to include(
+      include('Stopping order detail batch (2/2)', 'reason=download_limit_reached')
+    )
+  end
+
   it 'force-refreshes but preserves the old snapshot on transport or validation failure' do
     FileUtils.mkdir_p(File.dirname(final_path))
     old = fixture.sub('明日到着予定', '保存済み')
     File.binwrite(final_path, old)
 
-    allow(session).to receive(:visit).and_raise('transport')
-    expect(client.fetch_order_details(orders: [order], force: true).failed.first.reason).to eq(:fetch_failed)
+    allow(session).to receive(:visit).and_raise('transport with secret=do-not-log')
+    failure = client.fetch_order_details(orders: [order], force: true).failed.first
+    expect(failure.reason).to eq(:fetch_failed)
+    expect(failure.diagnostic).to eq('stage=visit error_class=RuntimeError page_capture=disabled')
+    expect(logs.join('\n')).to include('reason=fetch_failed', 'stage=visit', 'error_class=RuntimeError')
+    expect(logs.join('\n')).not_to include('transport', 'secret=do-not-log')
     expect(File.binread(final_path)).to eq(old.b)
 
     allow(session).to receive(:visit)
@@ -123,6 +144,50 @@ describe 'safe order detail fetching' do
     expect(result.failed.first.reason).to eq(:save_failed)
     expect(File.binread(final_path)).to eq(old.b)
     expect(Dir.glob(File.join(File.dirname(final_path), '*.tmp'))).to be_empty
+  end
+
+  it 'stops immediately on an invalid browser session and invokes the debug hook' do
+    invalid_session_error = Class.new(StandardError)
+    stub_const('Selenium::WebDriver::Error::InvalidSessionIdError', invalid_session_error)
+    error = Selenium::WebDriver::Error::InvalidSessionIdError.new('private driver message')
+    debug_hook = instance_double(Proc)
+    client.options[:on_detail_fetch_failure] = debug_hook
+    client.options[:capture_detail_failure_page] = true
+    allow(debug_hook).to receive(:call)
+    allow(session).to receive(:visit).and_raise(error)
+    allow(session).to receive(:save_page).and_raise(error)
+
+    expect do
+      client.fetch_order_details(orders: [order, Order.new('later', '/detail/later')])
+    end.to raise_error(Selenium::WebDriver::Error::InvalidSessionIdError)
+
+    expect(debug_hook).to have_received(:call).with(
+      have_attributes(reason: :browser_session_lost),
+      error,
+      session
+    ).once
+    expect(session).to have_received(:visit).once
+    expect(logs.join('\n')).to include(
+      'reason=browser_session_lost',
+      'stage=visit',
+      'error_class=Selenium::WebDriver::Error::InvalidSessionIdError',
+      'page_capture=unavailable'
+    )
+    expect(logs.join('\n')).not_to include('private driver message')
+  end
+
+  it 'best-effort captures the current page for a recoverable fetch failure' do
+    client.options[:capture_detail_failure_page] = true
+    allow(client).to receive(:wait_for_selector).and_raise('page wait failed')
+
+    failure = client.fetch_order_details(orders: [order]).failed.first
+
+    expect(failure.diagnostic).to eq(
+      'stage=wait_for_body error_class=RuntimeError page_capture=saved'
+    )
+    capture = Dir.glob(File.join(save_path, 'orders', 'details', 'failures', '*.html'))
+    expect(capture.size).to eq(1)
+    expect(File.binread(capture.first)).to eq(fixture.b)
   end
 
   it 'returns diagnostics for missing links and continues with valid orders' do

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja-JP">
+<head><meta charset="utf-8"><title>注文の詳細</title></head>
+<body>
+<main id="orderDetails">
+  <div data-component="orderId"><span>111-0000002-0000002</span></div>
+  <div data-component="shipments">
+    <div data-component="shipmentStatus"><span>配送状態A</span></div>
+    <div data-component="purchasedItems">
+      <div data-component="purchasedItemsLeftGrid">
+        <div data-component="itemImage"><a href="/dp/B000000001"><img alt=""></a></div>
+      </div>
+      <div data-component="purchasedItemsRightGrid">
+        <div data-component="itemTitle"><a href="/dp/B000000001">商品A</a></div>
+        <div data-component="quantity"></div>
+        <div data-component="unitPrice">￥1,234￥1,234</div>
+        <div data-component="itemConnections">
+          <a href="/your-orders/pop?asin=B000000001&amp;lineItemId=LINE-0001&amp;orderId=ORDER-0001&amp;packageId=PACKAGE-0001&amp;shipmentId=SHIPMENT-0001&amp;noPopRedirect=1&amp;ref_=detail">操作</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-component="orderSummary">
+    <div data-component="chargeSummary">
+      <div class="a-row od-line-item-row"><span>商品の小計：</span><span>商品の小計：</span><span>￥1,234</span></div>
+      <div class="a-row od-line-item-row"><span>配送料・手数料：</span><span>配送料・手数料：</span><span>￥120</span></div>
+      <div class="a-row od-line-item-row"><span>注文合計：</span><span>注文合計：</span><span>￥1,354</span></div>
+      <div class="a-row od-line-item-row"><span>割引：</span><span>割引：</span><span>-￥20</span></div>
+      <div class="a-row od-line-item-row"><span class="a-text-bold">ご請求額：</span><span>ご請求額：</span><span>￥1,334</span></div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

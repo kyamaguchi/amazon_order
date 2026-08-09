@@ -19,11 +19,13 @@ module AmazonOrder
       def empty?; loaded.empty?; end
       def success?; failed.empty?; end
     end
-    DetailBatchResult = Struct.new(:entries, keyword_init: true) do
+    DetailBatchResult = Struct.new(:entries, :stop_reason, keyword_init: true) do
       def downloaded; entries.select { |entry| entry.status == :downloaded }; end
       def skipped; entries.select { |entry| entry.status == :skipped }; end
       def failed; entries.select { |entry| entry.status == :failed }; end
       def success?; failed.empty?; end
+      def complete?; stop_reason.nil?; end
+      def stopped_early?; !complete?; end
     end
 
     include AmazonAuth::CommonExtension
@@ -77,13 +79,22 @@ module AmazonOrder
         :continue_on_error,
         options.fetch(:continue_on_detail_error, true)
       )
-      orders = fetch_options.fetch(:orders) { load_amazon_orders }
+      max_downloads = fetch_options.fetch(
+        :max_downloads,
+        options[:max_detail_downloads]
+      )
+      max_downloads = max_downloads.to_i if max_downloads
+      max_downloads = nil unless max_downloads&.positive?
+      orders = fetch_options.fetch(:orders) { load_amazon_orders }.to_a
       origin = order_history_origin
       candidates = {}
       conflicted = {}
       results = []
+      stop_reason = nil
+      downloads = 0
 
-      orders.each do |order|
+      orders.each_with_index do |order, index|
+        progress = "(#{index + 1}/#{orders.size})"
         order_number = order.order_number.to_s
         path = order.order_details_path.to_s
         if order_number.empty?
@@ -105,6 +116,14 @@ module AmazonOrder
           raise DetailFetchError, 'invalid_url' unless continue_on_error
           next
         end
+        if audible_detail_url?(url)
+          results << detail_result(order_number, final_path, :skipped, :unsupported_audible_detail)
+          safe_detail_log(
+            'Skipping Audible order detail', progress, order_number,
+            :unsupported_audible_detail
+          )
+          next
+        end
         if candidates.key?(order_number)
           if candidates[order_number][:link_identity] != detail_link_identity(url)
             candidates.delete(order_number)
@@ -114,13 +133,27 @@ module AmazonOrder
           end
           next
         end
-        candidates[order_number] = { url: url, path: final_path, link_identity: detail_link_identity(url) }
+        candidates[order_number] = {
+          url: url,
+          path: final_path,
+          link_identity: detail_link_identity(url),
+          progress: progress
+        }
       end
 
-      candidates.each_with_index do |(order_number, candidate), index|
+      candidates.each do |order_number, candidate|
         url = candidate[:url]
         final_path = candidate[:path]
-        progress = "(#{index + 1}/#{candidates.size})"
+        progress = candidate[:progress]
+        if max_downloads && downloads >= max_downloads
+          stop_reason = :download_limit_reached
+          safe_detail_log(
+            'Stopping order detail batch', progress, order_number,
+            stop_reason
+          )
+          break
+        end
+        stage = :prepare
         begin
           detail_directory = File.expand_path(File.dirname(final_path))
           FileUtils.mkdir_p(detail_directory)
@@ -134,10 +167,14 @@ module AmazonOrder
             end
 
             safe_detail_log('Fetching order detail', progress, order_number, :download)
+            stage = :visit
             session.visit(url)
+            stage = :wait_for_body
             wait_for_selector('body')
+            stage = :authentication_check
             raise AuthenticationError, 'authentication page was displayed' if authentication_page?
 
+            stage = :save
             temporary = Tempfile.new(['.order-detail-', '.tmp'], detail_directory)
             temporary_path = temporary.path
             temporary.close
@@ -151,14 +188,17 @@ module AmazonOrder
               rescue => e
                 raise DetailSaveError, e.class.name
               end
+              stage = :validate
               validation = validate_detail_html(File.binread(temporary_path), order_number)
               raise DetailFetchError, validation unless validation == :valid
               begin
+                stage = :install
                 File.rename(temporary_path, final_path)
               rescue => e
                 raise DetailSaveError, e.class.name
               end
               results << detail_result(order_number, final_path, :downloaded, :downloaded)
+              downloads += 1
               safe_detail_log('Saved order detail', progress, order_number, :downloaded)
             ensure
               FileUtils.rm_f(temporary_path) if temporary_path
@@ -166,12 +206,19 @@ module AmazonOrder
           end
         rescue => e
           reason = detail_failure_reason(e)
-          results << detail_result(order_number, final_path, :failed, reason)
-          safe_detail_log('Failed to fetch order detail', progress, order_number, reason)
-          raise if e.is_a?(AuthenticationError) || !continue_on_error
+          page_capture = capture_detail_failure_page(order_number)
+          diagnostic = detail_failure_diagnostic(e, stage, page_capture: page_capture)
+          failure = detail_result(order_number, final_path, :failed, reason, diagnostic: diagnostic)
+          results << failure
+          safe_detail_log(
+            'Failed to fetch order detail', progress, order_number, reason,
+            diagnostic: diagnostic
+          )
+          notify_detail_fetch_failure(failure, e)
+          raise if unrecoverable_detail_fetch_error?(e) || !continue_on_error
         end
       end
-      DetailBatchResult.new(entries: results)
+      DetailBatchResult.new(entries: results, stop_reason: stop_reason)
     end
 
     def load_amazon_orders
@@ -226,6 +273,15 @@ module AmazonOrder
         safe_detail_log('Loaded order detail', progress, order_identity, :loaded)
       end
       DetailLoadBatchResult.new(loaded: loaded, failed: failed)
+    end
+
+    # Explicitly parses already-loaded snapshots. This method performs no
+    # authentication, browser-session access, file IO, or network requests.
+    def parse_order_details(snapshots, parse_options = {})
+      AmazonOrder::DetailParser.parse(
+        snapshots,
+        continue_on_error: parse_options.fetch(:continue_on_error, true)
+      )
     end
 
     def file_glob_pattern
@@ -389,6 +445,13 @@ module AmazonOrder
       resolved.to_s
     end
 
+    def audible_detail_url?(url)
+      host = URI.parse(url).host.to_s.downcase
+      host == 'audible.co.jp' || host.end_with?('.audible.co.jp')
+    rescue URI::InvalidURIError
+      false
+    end
+
     def detail_path(order_number)
       digest = Digest::SHA256.hexdigest(order_number.to_s)
       File.join(Capybara.save_path, base_dir, 'details', "order-detail-#{digest}.html")
@@ -432,26 +495,61 @@ module AmazonOrder
       clock ? clock.call : Time.now
     end
 
-    def detail_result(identity, path, status, reason)
+    def detail_result(identity, path, status, reason, diagnostic: reason.to_s)
       DetailResult.new(
         order_identity: identity,
         path: path,
         status: status,
         reason: reason,
-        diagnostic: reason.to_s
+        diagnostic: diagnostic
       )
     end
 
     def detail_failure_reason(error)
       return :authentication_required if error.is_a?(AuthenticationError)
+      return :browser_session_lost if invalid_browser_session_error?(error)
       return error.message.to_sym if error.is_a?(DetailFetchError)
       return :save_failed if error.is_a?(DetailSaveError) || error.is_a?(SystemCallError) || error.is_a?(IOError)
       :fetch_failed
     end
 
-    def safe_detail_log(action, progress, identity, reason)
+    def unrecoverable_detail_fetch_error?(error)
+      error.is_a?(AuthenticationError) || invalid_browser_session_error?(error)
+    end
+
+    def invalid_browser_session_error?(error)
+      error.class.name == 'Selenium::WebDriver::Error::InvalidSessionIdError'
+    end
+
+    def notify_detail_fetch_failure(failure, error)
+      callback = options[:on_detail_fetch_failure]
+      callback.call(failure, error, session) if callback
+    end
+
+    def detail_failure_diagnostic(error, stage, page_capture: :disabled)
+      error_class = if error.is_a?(DetailSaveError) && !error.message.to_s.empty?
+                      error.message
+                    else
+                      error.class.name
+                    end
+      "stage=#{stage} error_class=#{error_class} page_capture=#{page_capture}"
+    end
+
+    def capture_detail_failure_page(identity)
+      return :disabled unless options[:capture_detail_failure_page]
+
       correlation = Digest::SHA256.hexdigest(identity.to_s)[0, 12]
-      log "#{action} #{progress}: order_ref=#{correlation} reason=#{reason}"
+      relative_path = File.join(base_dir, 'details', 'failures', "detail-failure-#{correlation}.html")
+      session.save_page(relative_path)
+      :saved
+    rescue
+      :unavailable
+    end
+
+    def safe_detail_log(action, progress, identity, reason, diagnostic: nil)
+      correlation = Digest::SHA256.hexdigest(identity.to_s)[0, 12]
+      suffix = diagnostic ? " diagnostic=#{diagnostic}" : ''
+      log "#{action} #{progress}: order_ref=#{correlation} reason=#{reason}#{suffix}"
     end
 
     def authentication_page?

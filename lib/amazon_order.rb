@@ -6,6 +6,8 @@ require "amazon_order/parsers/digital_order"
 require "amazon_order/parsers/normal_order"
 require "amazon_order/parsers/product"
 require "amazon_order/parser"
+require "amazon_order/detail_parser"
+require "amazon_order/detail_audit"
 require "amazon_order/writer"
 
 module AmazonOrder

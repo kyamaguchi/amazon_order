@@ -13,7 +13,7 @@ module AmazonOrder
       end
 
       def inspect
-        "#<#{self.class.name}:#{self.object_id} #{self.to_hash}>"
+        "#<#{self.class.name}:0x#{object_id.to_s(16)}>"
       end
 
       def to_hash
